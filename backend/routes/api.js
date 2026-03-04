@@ -2,7 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const Transaction = require('../models/Transaction');
+const Category = require('../models/Category');
+const List = require('../models/List');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'managecoin_super_secret_key';
@@ -26,11 +27,11 @@ const authMiddleware = (req, res, next) => {
 // Register
 router.post('/auth/register', async (req, res) => {
     try {
-        const { username, password } = req.body;
-        let user = await User.findOne({ username });
+        const { name, email, password, image } = req.body;
+        let user = await User.findOne({ email });
         if (user) return res.status(400).json({ message: 'User already exists' });
 
-        user = new User({ username, password });
+        user = new User({ name, email, password, image });
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(password, salt);
         await user.save();
@@ -38,7 +39,7 @@ router.post('/auth/register', async (req, res) => {
         const payload = { user: { id: user.id } };
         jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
             if (err) throw err;
-            res.json({ token, user: { id: user.id, username: user.username, balance: user.balance } });
+            res.json({ token, user: { id: user.id, name: user.name, email: user.email, image: user.image } });
         });
     } catch (err) {
         console.error(err.message);
@@ -49,8 +50,8 @@ router.post('/auth/register', async (req, res) => {
 // Login
 router.post('/auth/login', async (req, res) => {
     try {
-        const { username, password } = req.body;
-        const user = await User.findOne({ username });
+        const { email, password } = req.body;
+        const user = await User.findOne({ email });
         if (!user) return res.status(400).json({ message: 'Invalid Credentials' });
 
         const isMatch = await bcrypt.compare(password, user.password);
@@ -59,7 +60,7 @@ router.post('/auth/login', async (req, res) => {
         const payload = { user: { id: user.id } };
         jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
             if (err) throw err;
-            res.json({ token, user: { id: user.id, username: user.username, balance: user.balance } });
+            res.json({ token, user: { id: user.id, name: user.name, email: user.email, image: user.image } });
         });
     } catch (err) {
         console.error(err.message);
@@ -78,21 +79,29 @@ router.get('/auth/me', authMiddleware, async (req, res) => {
     }
 });
 
-// --- TRANSACTION ROUTES ---
-
-// Get all transactions for user
-router.get('/transactions', authMiddleware, async (req, res) => {
+// --- CATEGORY ROUTES ---
+router.get('/categories', authMiddleware, async (req, res) => {
     try {
-        const transactions = await Transaction.find({ userId: req.user.id }).sort({ createdAt: -1 });
-        res.json(transactions);
+        const categories = await Category.find();
+        res.json(categories);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
     }
 });
 
-// Add a transaction
-router.post('/transactions', authMiddleware, async (req, res) => {
+// --- LIST ROUTES ---
+router.get('/lists', authMiddleware, async (req, res) => {
+    try {
+        const lists = await List.find().populate('id_category');
+        res.json(lists);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+router.post('/lists', authMiddleware, async (req, res) => {
     try {
         let { input } = req.body;
         if (!input) {
@@ -100,9 +109,6 @@ router.post('/transactions', authMiddleware, async (req, res) => {
         }
 
         input = input.trim();
-        // Parsing logic: "Category Amount"
-        // E.g: "Ăn u 50000", "Cat 500k", "Mèo 500.000"
-        // We will split by spaces, take the last part as amount, the rest as category.
         const parts = input.split(' ');
         if (parts.length < 2) {
             return res.status(400).json({ message: 'Invalid format. Use "Category Amount" e.g "Food 50000"' });
@@ -111,8 +117,6 @@ router.post('/transactions', authMiddleware, async (req, res) => {
         let amountStr = parts[parts.length - 1];
         let categoryStr = parts.slice(0, parts.length - 1).join(' ');
 
-        // Parse amount: support "k" for thousands, remove dots and commas
-        // E.g: "50k" -> 50000, "50.000" -> 50000
         let multiplier = 1;
         if (amountStr.toLowerCase().endsWith('k')) {
             multiplier = 1000;
@@ -132,33 +136,27 @@ router.post('/transactions', authMiddleware, async (req, res) => {
             return res.status(400).json({ message: 'Could not parse amount' });
         }
 
-        // Determine if it's income or expense
-        // The user specified "Khi tôi nhập 'Cat <Số tiền>' thì lúc đó hệ cộng tiền vào dư"
-        const isIncome = categoryStr.toLowerCase().trim() === 'cat';
+        const isIncome = categoryStr.toLowerCase().trim() === 'cat' || categoryStr.toLowerCase().includes('thu nhập');
+        const type_category = isIncome ? 'income' : 'expense';
+        const finalCategory = isIncome ? 'Thu nhập' : categoryStr;
 
-        const type = isIncome ? 'income' : 'expense';
-        const finalCategory = isIncome ? 'Thu nhập' : categoryStr; // Normalize income category name maybe
+        // Find or create category
+        let category = await Category.findOne({ category_name: finalCategory });
+        if (!category) {
+            category = new Category({ category_name: finalCategory, type_category });
+            await category.save();
+        }
 
-        const newTransaction = new Transaction({
-            userId: req.user.id,
-            amount: parsedAmount,
-            category: categoryStr,
-            type: type,
-            description: input
+        const newList = new List({
+            category_name: finalCategory,
+            id_category: category._id,
+            price: parsedAmount,
+            content: input
         });
 
-        const transaction = await newTransaction.save();
+        const list = await newList.save();
 
-        // Update user balance
-        const user = await User.findById(req.user.id);
-        if (type === 'income') {
-            user.balance += parsedAmount;
-        } else {
-            user.balance -= parsedAmount;
-        }
-        await user.save();
-
-        res.json({ transaction, balance: user.balance });
+        res.json({ transaction: list });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');

@@ -9,7 +9,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
-        <Route path="/" element={!isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="/" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
   );

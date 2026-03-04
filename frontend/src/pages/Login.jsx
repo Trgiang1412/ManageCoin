@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 export default function Login() {
-    const [username, setUsername] = useState('');
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLogin, setIsLogin] = useState(true);
     const [error, setError] = useState('');
@@ -16,10 +17,9 @@ export default function Login() {
 
         try {
             const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-            const res = await axios.post(`http://localhost:5000${endpoint}`, {
-                username,
-                password
-            });
+            const payload = isLogin ? { email, password } : { name, email, password };
+
+            const res = await axios.post(`http://localhost:5000${endpoint}`, payload);
 
             localStorage.setItem('token', res.data.token);
             localStorage.setItem('user', JSON.stringify(res.data.user));
@@ -29,6 +29,11 @@ export default function Login() {
         }
     };
 
+    const toggleMode = () => {
+        setIsLogin(!isLogin);
+        setError('');
+    };
+
     return (
         <Container component="main" maxWidth="xs" sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Paper elevation={6} sx={{ p: 4, width: '100%', borderRadius: 4, textAlign: 'center' }}>
@@ -36,21 +41,36 @@ export default function Login() {
                     Managecoin
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    {isLogin ? 'Welcome back! Please login to your account.' : 'Create an account to track your expenses.'}
+                    {isLogin ? 'Chào mừng trở lại! Vui lòng đăng nhập.' : 'Tạo tài khoản mới để theo dõi chi tiêu.'}
                 </Typography>
 
                 <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+                    {!isLogin && (
+                        <TextField
+                            margin="normal"
+                            required
+                            fullWidth
+                            id="name"
+                            label="Họ và Tên"
+                            name="name"
+                            autoComplete="name"
+                            autoFocus={!isLogin}
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            sx={{ mb: 2 }}
+                        />
+                    )}
                     <TextField
                         margin="normal"
                         required
                         fullWidth
-                        id="username"
-                        label="Username"
-                        name="username"
-                        autoComplete="username"
-                        autoFocus
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
+                        id="email"
+                        label="Địa chỉ Email"
+                        name="email"
+                        autoComplete="email"
+                        autoFocus={isLogin}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         sx={{ mb: 2 }}
                     />
                     <TextField
@@ -58,7 +78,7 @@ export default function Login() {
                         required
                         fullWidth
                         name="password"
-                        label="Password"
+                        label="Mật khẩu"
                         type="password"
                         id="password"
                         autoComplete="current-password"
@@ -81,19 +101,20 @@ export default function Login() {
                         disableElevation
                         sx={{ py: 1.5, mb: 2, borderRadius: 2 }}
                     >
-                        {isLogin ? 'Sign In' : 'Sign Up'}
+                        {isLogin ? 'Đăng Nhập' : 'Đăng Ký'}
                     </Button>
 
                     <Button
                         fullWidth
                         variant="text"
-                        onClick={() => setIsLogin(!isLogin)}
+                        onClick={toggleMode}
                         sx={{ color: 'text.secondary' }}
                     >
-                        {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+                        {isLogin ? "Chưa có tài khoản?" : "Đã có tài khoản?"}
                     </Button>
                 </Box>
             </Paper>
         </Container>
     );
 }
+
