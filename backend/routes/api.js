@@ -36,6 +36,17 @@ router.post('/auth/register', async (req, res) => {
         user.password = await bcrypt.hash(password, salt);
         await user.save();
 
+        // Seed default categories for the new user
+        const defaultCategories = [
+            { user_id: user.id, category_name: 'Thu nhập', type_category: 'income' },
+            { user_id: user.id, category_name: 'Ăn uống', type_category: 'expense' },
+            { user_id: user.id, category_name: 'Di chuyển', type_category: 'expense' },
+            { user_id: user.id, category_name: 'Mua sắm', type_category: 'expense' },
+            { user_id: user.id, category_name: 'Tiết kiệm', type_category: 'expense' },
+            { user_id: user.id, category_name: 'Khác', type_category: 'expense' }
+        ];
+        await Category.insertMany(defaultCategories);
+
         const payload = { user: { id: user.id } };
         jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
             if (err) throw err;
@@ -82,7 +93,7 @@ router.get('/auth/me', authMiddleware, async (req, res) => {
 // --- CATEGORY ROUTES ---
 router.get('/categories', authMiddleware, async (req, res) => {
     try {
-        const categories = await Category.find();
+        const categories = await Category.find({ user_id: req.user.id });
         res.json(categories);
     } catch (err) {
         console.error(err.message);
@@ -93,7 +104,7 @@ router.get('/categories', authMiddleware, async (req, res) => {
 // --- LIST ROUTES ---
 router.get('/lists', authMiddleware, async (req, res) => {
     try {
-        const lists = await List.find().populate('id_category');
+        const lists = await List.find({ user_id: req.user.id }).populate('id_category');
         res.json(lists);
     } catch (err) {
         console.error(err.message);
@@ -136,19 +147,43 @@ router.post('/lists', authMiddleware, async (req, res) => {
             return res.status(400).json({ message: 'Could not parse amount' });
         }
 
-        const isIncome = categoryStr.toLowerCase().trim() === 'cat' || categoryStr.toLowerCase().includes('thu nhập');
-        const type_category = isIncome ? 'income' : 'expense';
-        const finalCategory = isIncome ? 'Thu nhập' : categoryStr;
+        const itemStrLower = categoryStr.toLowerCase().trim();
+        let targetCategoryName = null;
 
-        // Find or create category
-        let category = await Category.findOne({ category_name: finalCategory });
-        if (!category) {
-            category = new Category({ category_name: finalCategory, type_category });
-            await category.save();
+        // Auto categorization logic based ONLY on what we want to map to existing ones
+        if (itemStrLower.match(/(bún|phở|cơm|bánh|nước|cafe|trà|uống|ăn|food|mì|nhậu|lẩu|gà|bò)/)) targetCategoryName = 'Ăn uống';
+        else if (itemStrLower.match(/(xe|xăng|grab|taxi|bus|vé|di chuyển|car|motor)/)) targetCategoryName = 'Di chuyển';
+        else if (itemStrLower.match(/(áo|quần|giày|túi|đồ|siêu thị|mua|shopping|shopee|lazada)/)) targetCategoryName = 'Mua sắm';
+        else if (itemStrLower.match(/(tiết kiệm|heo|gửi|save)/)) targetCategoryName = 'Tiết kiệm';
+        else if (itemStrLower.match(/(lương|thưởng|bán|lãi|thu|thêm|income)/)) targetCategoryName = 'Thu nhập';
+
+        // 1. Try to find the exact matched category from our auto-categorization
+        let category = null;
+        if (targetCategoryName) {
+            category = await Category.findOne({ user_id: req.user.id, category_name: targetCategoryName });
         }
 
+        // 2. If no auto-match, or the auto-matched category doesn't actually exist in the DB, try to find an exact match from user input
+        if (!category) {
+            category = await Category.findOne({ user_id: req.user.id, category_name: new RegExp(`^${categoryStr}$`, 'i') });
+        }
+
+        // 3. If STILL not found, it MUST go to 'Khác'
+        if (!category) {
+            category = await Category.findOne({ user_id: req.user.id, category_name: 'Khác' });
+
+            // Just in case 'Khác' was somehow deleted, recreate it
+            if (!category) {
+                category = new Category({ user_id: req.user.id, category_name: 'Khác', type_category: 'expense' });
+                await category.save();
+            }
+        }
+
+        const finalCategory = category.category_name;
+
         const newList = new List({
-            category_name: finalCategory,
+            user_id: req.user.id,
+            category_name: finalCategory, // Using the category name of the type
             id_category: category._id,
             price: parsedAmount,
             content: input
