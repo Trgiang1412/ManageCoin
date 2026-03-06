@@ -1,11 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box, Typography, Avatar, IconButton, Paper,
-    InputBase, CircularProgress
+    InputBase, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button, List as MuiList, ListItem, ListItemText, ListItemSecondaryAction,
+    Menu, MenuItem, ListItemIcon, Snackbar, Alert
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
+import LogoutIcon from '@mui/icons-material/Logout';
 import SendIcon from '@mui/icons-material/Send';
 import MicIcon from '@mui/icons-material/Mic';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CloseIcon from '@mui/icons-material/Close';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -19,6 +25,7 @@ const categoryConfig = {
 };
 
 export default function Dashboard() {
+    const navigate = useNavigate();
     const [balance, setBalance] = useState(0);
     const [transactions, setTransactions] = useState([]);
     const [input, setInput] = useState('');
@@ -28,6 +35,21 @@ export default function Dashboard() {
     // Popup state
     const [lastTransaction, setLastTransaction] = useState(null);
     const [showPopup, setShowPopup] = useState(false);
+
+    const [dragTimerRef, setDragTimerRef] = useState(null); // Fix unused ref logic, simpler to use react refs but let's keep it safe
+    const dragTimerInstance = useRef(null);
+    const hoveredCategoryRef = useRef(null);
+
+    const [selectedCategoryName, setSelectedCategoryName] = useState(null);
+    const [categoryInput, setCategoryInput] = useState('');
+
+    const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
+    const openSettings = Boolean(settingsAnchorEl);
+
+    const [openFinishMonthDialog, setOpenFinishMonthDialog] = useState(false);
+
+    // Snackbar state
+    const [snackbarObj, setSnackbarObj] = useState({ open: false, message: '', severity: 'success' });
 
     const [dbCategories, setDbCategories] = useState([]);
 
@@ -147,6 +169,116 @@ export default function Dashboard() {
         }
     };
 
+    const handleDrag = (event, info, item) => {
+        const x = info.point.x;
+        const y = info.point.y;
+
+        // Find the element under the pointer
+        let draggedEl = event.target || event.srcElement;
+        if (draggedEl) {
+            // Need the actual container if child was clicked
+            if (!draggedEl.style) draggedEl = draggedEl.parentElement;
+
+            const originalDisplay = draggedEl.style ? draggedEl.style.display : '';
+            if (draggedEl.style) draggedEl.style.display = 'none';
+
+            const droppedEl = document.elementFromPoint(x, y);
+
+            if (draggedEl.style) draggedEl.style.display = originalDisplay;
+
+            const categoryDropZone = droppedEl?.closest('[data-category]');
+
+            if (categoryDropZone) {
+                const newCategory = categoryDropZone.getAttribute('data-category');
+
+                if (hoveredCategoryRef.current !== newCategory) {
+                    hoveredCategoryRef.current = newCategory;
+                    if (dragTimerInstance.current) clearTimeout(dragTimerInstance.current);
+
+                    dragTimerInstance.current = setTimeout(async () => {
+                        // Assign transaction after 1 second of holding
+                        if (hoveredCategoryRef.current === newCategory && newCategory !== item.category_name) {
+                            try {
+                                setLoading(true);
+                                await axios.put(`http://localhost:5000/api/lists/${item._id}`, { category_name: newCategory }, {
+                                    headers: { Authorization: `Bearer ${token}` }
+                                });
+                                await fetchData();
+
+                                setLastTransaction({ ...item, category_name: newCategory });
+                                setShowPopup(true);
+                                setTimeout(() => setShowPopup(false), 4000);
+                            } catch (err) {
+                                console.error('Update failed', err);
+                            } finally {
+                                setLoading(false);
+                                hoveredCategoryRef.current = null;
+                            }
+                        }
+                    }, 1000); // 1-second delay
+                }
+            } else {
+                // Pointer is no longer over a category
+                if (hoveredCategoryRef.current) {
+                    hoveredCategoryRef.current = null;
+                    if (dragTimerInstance.current) clearTimeout(dragTimerInstance.current);
+                }
+            }
+        }
+    };
+
+    const handleDragEnd = async (event, info, item) => {
+        // Clear hover timer if dropped before 1s
+        hoveredCategoryRef.current = null;
+        if (dragTimerInstance.current) clearTimeout(dragTimerInstance.current);
+    };
+
+    const handleDeleteTransaction = async (id) => {
+        if (!window.confirm("Bạn có chắc chắn muốn xóa khoản này?")) return;
+        try {
+            setLoading(true);
+            await axios.delete(`http://localhost:5000/api/lists/${id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            await fetchData();
+        } catch (err) {
+            console.error('Delete failed', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login');
+    };
+
+    const handleFinishMonth = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.post('http://localhost:5000/api/lists/end-month', {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setSnackbarObj({
+                open: true,
+                message: `Thành công! Đã chốt chi tiêu cho tháng ${res.data.done_month} với ${res.data.count} khoản chi.`,
+                severity: 'success'
+            });
+            setOpenFinishMonthDialog(false);
+            await fetchData();
+        } catch (err) {
+            console.error('Lỗi khi chốt tháng', err);
+            setSnackbarObj({
+                open: true,
+                message: err.response?.data?.message || 'Có lỗi xảy ra khi chốt tháng',
+                severity: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const categoryTotals = {};
     let totalExpense = 0;
 
@@ -169,10 +301,10 @@ export default function Dashboard() {
     const getTransactionKeyword = (content) => {
         if (!content) return '';
         // "bún bò 30k" -> "bún bò"
-        const parts = content.split(' ');
-        if (parts.length > 1) {
-            return parts.slice(0, -1).join(' ').toLowerCase();
-        }
+        // const parts = content.split(' ');
+        // if (parts.length > 1) {
+        //     return parts.slice(0, -1).join(' ').toLowerCase();
+        // }
         return content;
     };
 
@@ -195,12 +327,13 @@ export default function Dashboard() {
                                     {categoryConfig[lastTransaction.category_name]?.icon || '📦'}
                                 </span>
                                 <span style={{ color: '#4caf50', margin: '0 8px', fontSize: '20px' }}>✅</span>
-                                Đã cất vào {lastTransaction.category_name}: {getTransactionKeyword(lastTransaction.content)}
+                                {lastTransaction.category_name ? `Đã cất vào ${lastTransaction.category_name}: ` : 'Đã lưu khoản chi: '}
+                                {getTransactionKeyword(lastTransaction.content)}
                             </Typography>
 
                             <Box sx={{ mt: 2, borderTop: '1px dashed #555', pt: 2 }}>
                                 <Typography variant="caption" sx={{ color: '#888', display: 'block', textTransform: 'uppercase', letterSpacing: 1, mb: 1 }}>
-                                    --- Dashboard Tài Lộc ---
+                                    --- ManageCoin ---
                                 </Typography>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <Typography variant="body2" sx={{ color: '#81c784', fontWeight: 'bold' }}>
@@ -230,9 +363,67 @@ export default function Dashboard() {
                 </Box>
 
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <IconButton size="small" sx={{ bgcolor: '#FFF', boxShadow: 1, mb: 1.5, '&:hover': { bgcolor: '#F0F0F0' } }}>
-                        <SettingsIcon fontSize="small" sx={{ color: '#FF9800' }} />
-                    </IconButton>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                        <IconButton
+                            size="small"
+                            onClick={() => setOpenFinishMonthDialog(true)}
+                            sx={{ bgcolor: '#FFF', boxShadow: 1, mb: 1.5, '&:hover': { bgcolor: '#F0F0F0' }, color: '#4CAF50' }}
+                        >
+                            <RestartAltIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                            size="small"
+                            onClick={(e) => setSettingsAnchorEl(e.currentTarget)}
+                            aria-controls={openSettings ? 'settings-menu' : undefined}
+                            aria-haspopup="true"
+                            aria-expanded={openSettings ? 'true' : undefined}
+                            sx={{ bgcolor: '#FFF', boxShadow: 1, mb: 1.5, '&:hover': { bgcolor: '#F0F0F0' } }}
+                        >
+                            <SettingsIcon fontSize="small" sx={{ color: '#FF9800' }} />
+                        </IconButton>
+                    </Box>
+                    <Menu
+                        id="settings-menu"
+                        anchorEl={settingsAnchorEl}
+                        open={openSettings}
+                        onClose={() => setSettingsAnchorEl(null)}
+                        PaperProps={{
+                            elevation: 0,
+                            sx: {
+                                overflow: 'visible',
+                                filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.12))',
+                                mt: 1.5,
+                                '& .MuiAvatar-root': {
+                                    width: 32,
+                                    height: 32,
+                                    ml: -0.5,
+                                    mr: 1,
+                                },
+                                '&::before': {
+                                    content: '""',
+                                    display: 'block',
+                                    position: 'absolute',
+                                    top: 0,
+                                    right: 14,
+                                    width: 10,
+                                    height: 10,
+                                    bgcolor: 'background.paper',
+                                    transform: 'translateY(-50%) rotate(45deg)',
+                                    zIndex: 0,
+                                },
+                            },
+                        }}
+                        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                    >
+                        <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
+                            <ListItemIcon>
+                                <LogoutIcon fontSize="small" color="error" />
+                            </ListItemIcon>
+                            Đăng xuất
+                        </MenuItem>
+                    </Menu>
+
                     <Paper elevation={0} sx={{ p: 2.5, borderRadius: '35px', bgcolor: '#FFF', minWidth: 160, textAlign: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.04)' }}>
                         <Typography variant="caption" color="text.secondary" fontWeight="bold" sx={{ letterSpacing: 0.5 }}>SỐ DƯ CÒN LẠI</Typography>
                         <Typography variant="h5" fontWeight="900" sx={{ mt: 0.5, color: '#333' }}>
@@ -245,17 +436,22 @@ export default function Dashboard() {
             <Box sx={{ flex: 1, overflowY: 'auto', px: 3, pb: 12 }}>
 
                 {/* Unassigned / Dragable Area */}
+                {/* Unassigned / Dragable Area */}
                 {(() => {
-                    const unassignedItems = transactions.filter(t => t.category_name === 'Khác');
+                    const unassignedItems = transactions.filter(t => !t.category_name || t.category_name === '');
                     if (unassignedItems.length === 0) return null;
+
+                    // Limit to 2 unassigned items shown at a time
+                    const visibleUnassignedItems = unassignedItems.slice(0, 2);
+
                     return (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 2, mb: 4, mt: 2 }}>
-                            {unassignedItems.map(item => (
-                                <motion.div key={item._id} drag dragConstraints={{ left: -100, right: 100, top: -50, bottom: 200 }} style={{ zIndex: 50 }}>
-                                    <Paper sx={{ p: 1.5, borderRadius: 5, bgcolor: '#fff', textAlign: 'center', boxShadow: 3, minWidth: 100, cursor: 'grab' }}>
-                                        <Typography variant="caption" sx={{ color: '#888', display: 'block', mb: 0.5 }}>CHƯA BIẾT BỎ ĐÂU...</Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 2, mb: 1, mt: 0 }}>
+                            {visibleUnassignedItems.map(item => (
+                                <motion.div key={item._id} drag dragSnapToOrigin={true} onDragEnd={(e, info) => handleDragEnd(e, info, item)} whileDrag={{ scale: 1.1, zIndex: 100 }} style={{ zIndex: 50 }}>
+                                    <Paper sx={{ p: 1.5, borderRadius: 5, bgcolor: '#fff', textAlign: 'center', boxShadow: 3, minWidth: 100, cursor: 'grab', border: '2px dashed #ff9800' }}>
+                                        <Typography variant="caption" sx={{ color: '#ff9800', display: 'block', mb: 0.5, fontWeight: 'bold' }}>CHƯA PHÂN LOẠI</Typography>
                                         <Typography variant="body2" fontWeight="bold">{getTransactionKeyword(item.content)}</Typography>
-                                        <Typography variant="body2" color="error">{item.price.toLocaleString('vi-VN')}đ</Typography>
+                                        <Typography variant="body2" color="error">{(item.price || 0).toLocaleString('vi-VN')}đ</Typography>
                                     </Paper>
                                 </motion.div>
                             ))}
@@ -263,11 +459,11 @@ export default function Dashboard() {
                     );
                 })()}
 
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, pt: 2 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, pt: 4 }}>
                     {dbCategories.map((dbCat) => {
                         const key = dbCat.category_name;
                         const config = categoryConfig[key] || { icon: '📦', color: '#E2E3E5', name: key.toUpperCase() };
-                        if (key === 'Khác') return null; // Unassigned is handled above
+                        // Unassigned is handled above
 
                         // Find recent items for this category to display as drag bubbles
                         const catItems = transactions.filter(t => t.category_name === key).slice(-2);
@@ -280,8 +476,11 @@ export default function Dashboard() {
                                         <motion.div
                                             key={item._id || idx}
                                             drag
+                                            dragSnapToOrigin={true}
+                                            onDrag={(e, info) => handleDrag(e, info, item)}
+                                            onDragEnd={(e, info) => handleDragEnd(e, info, item)}
                                             dragConstraints={{ left: -50, right: 50, top: -50, bottom: 50 }}
-                                            whileDrag={{ scale: 1.1, zIndex: 50 }}
+                                            whileDrag={{ scale: 1.1, zIndex: 100 }}
                                             initial={{ y: 20, opacity: 0 }}
                                             animate={{ y: 0, opacity: 1 }}
                                             style={{ position: 'absolute', top: idx * -10, left: '10%', right: '10%', zIndex: 10 + idx }}
@@ -295,8 +494,8 @@ export default function Dashboard() {
                                     ))}
                                 </Box>
 
-                                <Paper elevation={0} sx={{ width: 70, height: 90, borderRadius: '40px 40px 16px 16px', bgcolor: config.color, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5, boxShadow: '0 4px 10px rgba(0,0,0,0.03)', zIndex: 1 }}>
-                                    <Typography fontSize={36}>{config.icon}</Typography>
+                                <Paper elevation={0} data-category={dbCat.category_name} onClick={() => setSelectedCategoryName(dbCat.category_name)} sx={{ cursor: 'pointer', width: 60, height: 75, borderRadius: '30px 30px 12px 12px', bgcolor: config.color, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5, boxShadow: '0 4px 10px rgba(0,0,0,0.03)', zIndex: 1, transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.05)' } }}>
+                                    <Typography fontSize={28}>{config.icon}</Typography>
                                 </Paper>
                                 <Typography variant="caption" fontWeight="bold" color="text.secondary">{config.name}</Typography>
                                 <Typography variant="caption" fontWeight="bold" sx={{ mt: 0.5 }}>
@@ -318,6 +517,107 @@ export default function Dashboard() {
                     {loading ? <CircularProgress size={24} /> : <SendIcon />}
                 </IconButton>
             </Paper>
+
+            {/* Category Details Dialog */}
+            <Dialog fullWidth maxWidth="xs" open={!!selectedCategoryName} onClose={() => setSelectedCategoryName(null)}>
+                {selectedCategoryName && (() => {
+                    const config = categoryConfig[selectedCategoryName] || { icon: '📦', color: '#E2E3E5', name: selectedCategoryName.toUpperCase() };
+                    const catTransactions = transactions.filter(t => t.category_name === selectedCategoryName);
+                    return (
+                        <>
+                            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: config.color, pb: 2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography fontSize={24}>{config.icon}</Typography>
+                                    <Typography variant="h6" fontWeight="bold">{config.name}</Typography>
+                                </Box>
+                                <IconButton onClick={() => setSelectedCategoryName(null)} size="small">
+                                    <CloseIcon />
+                                </IconButton>
+                            </DialogTitle>
+                            <DialogContent sx={{ p: 0, bgcolor: '#FAFAFA' }}>
+                                <Box sx={{ p: 2, borderBottom: '1px solid #eee', bgcolor: '#fff' }}>
+                                    <Paper component="form" onSubmit={async (e) => {
+                                        e.preventDefault();
+                                        if (!categoryInput.trim()) return;
+                                        await processTransaction(`${selectedCategoryName} ${categoryInput}`);
+                                        setCategoryInput('');
+                                    }} elevation={0} sx={{ p: '2px 4px', display: 'flex', alignItems: 'center', borderRadius: 2, border: '1px solid #ddd' }}>
+                                        <InputBase
+                                            sx={{ ml: 1, flex: 1 }}
+                                            placeholder={`Thêm khoản vào ${selectedCategoryName}...`}
+                                            value={categoryInput}
+                                            onChange={(e) => setCategoryInput(e.target.value)}
+                                            disabled={loading}
+                                        />
+                                        <IconButton type="submit" color="primary" sx={{ p: '10px' }} disabled={loading || !categoryInput.trim()}>
+                                            {loading ? <CircularProgress size={24} /> : <SendIcon />}
+                                        </IconButton>
+                                    </Paper>
+                                </Box>
+                                <MuiList sx={{ pt: 0, pb: 2 }}>
+                                    {catTransactions.length === 0 ? (
+                                        <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 3 }}>Chưa có khoản nào.</Typography>
+                                    ) : (
+                                        [...catTransactions].reverse().map(t => (
+                                            <ListItem key={t._id} sx={{ borderBottom: '1px solid #f0f0f0', bgcolor: '#fff' }}>
+                                                <ListItemText
+                                                    primary={getTransactionKeyword(t.content) || 'Khoản chi'}
+                                                    primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                                                    secondary={new Date(t.date).toLocaleDateString('vi-VN')}
+                                                    secondaryTypographyProps={{ variant: 'caption' }}
+                                                />
+                                                <Typography variant="body2" fontWeight="bold" sx={{ mr: 2, color: t.id_category?.type_category === 'income' ? '#4caf50' : '#e57373' }}>
+                                                    {t.id_category?.type_category === 'income' ? '+' : '-'}{(t.price || 0).toLocaleString('vi-VN')}đ
+                                                </Typography>
+                                                <ListItemSecondaryAction>
+                                                    <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteTransaction(t._id)} size="small" color="error">
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </ListItemSecondaryAction>
+                                            </ListItem>
+                                        ))
+                                    )}
+                                </MuiList>
+                            </DialogContent>
+                        </>
+                    );
+                })()}
+            </Dialog>
+
+            {/* Confirm Finish Month Dialog */}
+            <Dialog open={openFinishMonthDialog} onClose={() => setOpenFinishMonthDialog(false)}>
+                <DialogTitle>Xác nhận chốt tháng</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Bạn có muốn kết thúc tháng chi tiêu hiện tại không?
+                        Hành động này sẽ đóng băng các khoản chi hiện tại và tính vào lịch sử tháng.
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenFinishMonthDialog(false)} color="inherit" disabled={loading}>Hủy</Button>
+                    <Button onClick={handleFinishMonth} variant="contained" color="error" disabled={loading} autoFocus>
+                        {loading ? <CircularProgress size={24} color="inherit" /> : 'Chốt tháng'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Global Snackbar */}
+            <Snackbar
+                open={snackbarObj.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbarObj({ ...snackbarObj, open: false })}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            >
+                <Alert
+                    onClose={() => setSnackbarObj({ ...snackbarObj, open: false })}
+                    severity={snackbarObj.severity}
+                    sx={{ width: '100%', boxShadow: 3, borderRadius: 2 }}
+                    variant="filled"
+                >
+                    {snackbarObj.message}
+                </Alert>
+            </Snackbar>
+
         </Box>
     );
 }

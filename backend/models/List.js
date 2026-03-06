@@ -8,12 +8,12 @@ const listSchema = new mongoose.Schema({
     },
     category_name: {
         type: String,
-        required: true
+        required: false
     },
     id_category: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Category',
-        required: true
+        required: false
     },
     date: {
         type: Date,
@@ -25,6 +25,10 @@ const listSchema = new mongoose.Schema({
     },
     content: {
         type: String
+    },
+    done_month: {
+        type: String,
+        default: null
     }
 }, { timestamps: true });
 

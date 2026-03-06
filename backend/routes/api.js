@@ -104,8 +104,47 @@ router.get('/categories', authMiddleware, async (req, res) => {
 // --- LIST ROUTES ---
 router.get('/lists', authMiddleware, async (req, res) => {
     try {
-        const lists = await List.find({ user_id: req.user.id }).populate('id_category');
+        const lists = await List.find({
+            user_id: req.user.id,
+            $or: [
+                { done_month: null },
+                { done_month: { $exists: false } }
+            ]
+        }).populate('id_category');
         res.json(lists);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+router.post('/lists/end-month', authMiddleware, async (req, res) => {
+    try {
+        // Find all unfinished lists for this user
+        const query = {
+            user_id: req.user.id,
+            $or: [
+                { done_month: null },
+                { done_month: { $exists: false } }
+            ]
+        };
+
+        const unfinishedLists = await List.find(query).sort({ date: 1 });
+
+        if (unfinishedLists.length === 0) {
+            return res.status(400).json({ message: 'Không có khoản chi nào để kết thúc.' });
+        }
+
+        // The date of the oldest transaction
+        const oldestDate = unfinishedLists[0].date;
+        const month = String(oldestDate.getMonth() + 1).padStart(2, '0');
+        const year = oldestDate.getFullYear();
+        const doneMonthStr = `${month}/${year}`;
+
+        // Update all unfinished lists
+        await List.updateMany(query, { $set: { done_month: doneMonthStr } });
+
+        res.json({ message: 'Đã kết thúc tháng', done_month: doneMonthStr, count: unfinishedLists.length });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
@@ -120,28 +159,36 @@ router.post('/lists', authMiddleware, async (req, res) => {
         }
 
         input = input.trim();
-        const parts = input.split(' ');
-        if (parts.length < 2) {
-            return res.status(400).json({ message: 'Invalid format. Use "Category Amount" e.g "Food 50000"' });
+        // Regex to explicitly capture the number and the unit, ignoring leading content
+        const match = input.match(/(.*?)\s+((?:\d+[.,]?\d*)|(?:\d+))\s*(k|m|tr|triệu|trieu|nghìn|nghin|đ|d)?$/i);
+
+        let amountStr, unit, categoryStr;
+
+        if (match) {
+            categoryStr = match[1].trim();
+            amountStr = match[2].replace(/,/g, '.');
+            unit = match[3] ? match[3].toLowerCase() : '';
+        } else {
+            // Fallback for just numbers at the end without leading space e.g., "Food50000"
+            const fallbackMatch = input.match(/((?:\d+[.,]?\d*)|(?:\d+))\s*(k|m|tr|triệu|trieu|nghìn|nghin|đ|d)?$/i);
+            if (!fallbackMatch) {
+                return res.status(400).json({ message: 'Invalid format. Use "Category Amount" e.g "Food 50000" or "Thu nhập 10 triệu"' });
+            }
+            amountStr = fallbackMatch[1].replace(/,/g, '.');
+            unit = fallbackMatch[2] ? fallbackMatch[2].toLowerCase() : '';
+            categoryStr = input.substring(0, fallbackMatch.index).trim();
         }
 
-        let amountStr = parts[parts.length - 1];
-        let categoryStr = parts.slice(0, parts.length - 1).join(' ');
+        if (!categoryStr) categoryStr = 'Khác';
 
         let multiplier = 1;
-        if (amountStr.toLowerCase().endsWith('k')) {
+        if (['k', 'nghìn', 'nghin'].includes(unit)) {
             multiplier = 1000;
-            amountStr = amountStr.slice(0, -1);
-        } else if (amountStr.toLowerCase().endsWith('m')) {
+        } else if (['m', 'tr', 'triệu', 'trieu'].includes(unit)) {
             multiplier = 1000000;
-            amountStr = amountStr.slice(0, -1);
-        } else if (amountStr.toLowerCase().endsWith('tr')) {
-            multiplier = 1000000;
-            amountStr = amountStr.slice(0, -2);
         }
 
-        amountStr = amountStr.replace(/[^0-9]/g, '');
-        let parsedAmount = parseInt(amountStr, 10) * multiplier;
+        let parsedAmount = parseFloat(amountStr) * multiplier;
 
         if (isNaN(parsedAmount)) {
             return res.status(400).json({ message: 'Could not parse amount' });
@@ -151,9 +198,9 @@ router.post('/lists', authMiddleware, async (req, res) => {
         let targetCategoryName = null;
 
         // Auto categorization logic based ONLY on what we want to map to existing ones
-        if (itemStrLower.match(/(bún|phở|cơm|bánh|nước|cafe|trà|uống|ăn|food|mì|nhậu|lẩu|gà|bò)/)) targetCategoryName = 'Ăn uống';
+        if (itemStrLower.match(/(bún|phở|cơm|bánh|nước|cafe|trà|uống|ăn|food|mì|nhậu|lẩu|gà|bò|thịt|cá|rau|sữa|chợ)/)) targetCategoryName = 'Ăn uống';
         else if (itemStrLower.match(/(xe|xăng|grab|taxi|bus|vé|di chuyển|car|motor)/)) targetCategoryName = 'Di chuyển';
-        else if (itemStrLower.match(/(áo|quần|giày|túi|đồ|siêu thị|mua|shopping|shopee|lazada)/)) targetCategoryName = 'Mua sắm';
+        else if (itemStrLower.match(/(áo|quần|giày|túi|đồ|siêu thị|mua|shopping|shopee|lazada|son|quần áo|mỹ phẩm)/)) targetCategoryName = 'Mua sắm';
         else if (itemStrLower.match(/(tiết kiệm|heo|gửi|save)/)) targetCategoryName = 'Tiết kiệm';
         else if (itemStrLower.match(/(lương|thưởng|bán|lãi|thu|thêm|income)/)) targetCategoryName = 'Thu nhập';
 
@@ -168,23 +215,19 @@ router.post('/lists', authMiddleware, async (req, res) => {
             category = await Category.findOne({ user_id: req.user.id, category_name: new RegExp(`^${categoryStr}$`, 'i') });
         }
 
-        // 3. If STILL not found, it MUST go to 'Khác'
-        if (!category) {
-            category = await Category.findOne({ user_id: req.user.id, category_name: 'Khác' });
+        // 3. If STILL not found, keep it unassigned
+        let finalCategory = '';
+        let idCategory = null;
 
-            // Just in case 'Khác' was somehow deleted, recreate it
-            if (!category) {
-                category = new Category({ user_id: req.user.id, category_name: 'Khác', type_category: 'expense' });
-                await category.save();
-            }
+        if (category) {
+            finalCategory = category.category_name;
+            idCategory = category._id;
         }
-
-        const finalCategory = category.category_name;
 
         const newList = new List({
             user_id: req.user.id,
             category_name: finalCategory, // Using the category name of the type
-            id_category: category._id,
+            id_category: idCategory,
             price: parsedAmount,
             content: input
         });
@@ -192,6 +235,43 @@ router.post('/lists', authMiddleware, async (req, res) => {
         const list = await newList.save();
 
         res.json({ transaction: list });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+router.put('/lists/:id', authMiddleware, async (req, res) => {
+    try {
+        const { category_name } = req.body;
+        if (!category_name) {
+            return res.status(400).json({ message: 'Category name is required' });
+        }
+
+        const list = await List.findOne({ _id: req.params.id, user_id: req.user.id });
+        if (!list) return res.status(404).json({ message: 'Transaction not found' });
+
+        const category = await Category.findOne({ user_id: req.user.id, category_name });
+        if (!category) return res.status(404).json({ message: 'Category not found' });
+
+        list.category_name = category.category_name;
+        list.id_category = category._id;
+        await list.save();
+
+        res.json({ transaction: list });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+router.delete('/lists/:id', authMiddleware, async (req, res) => {
+    try {
+        const list = await List.findOne({ _id: req.params.id, user_id: req.user.id });
+        if (!list) return res.status(404).json({ message: 'Transaction not found' });
+
+        await list.deleteOne();
+        res.json({ message: 'Transaction deleted' });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
