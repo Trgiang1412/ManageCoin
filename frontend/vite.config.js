@@ -7,20 +7,20 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'logo.svg'],
       manifest: {
-        name: 'Managecoin Expense Tracker',
+        name: 'Managecoin',
         short_name: 'Managecoin',
-        description: 'Track your expenses easily',
+        description: 'Quản lý chi tiêu',
         theme_color: '#ffffff',
         icons: [
           {
-            src: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png', // Temporary icon URL
+            src: '/logo.svg', // Temporary icon URL
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png', // Temporary icon URL
+            src: '/logo.svg', // Temporary icon URL
             sizes: '512x512',
             type: 'image/png'
           }

@@ -14,6 +14,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../config';
 
 const categoryConfig = {
     'Thu nhập': { icon: '💰', color: '#FFF3CD', name: 'THU NHẬP' },
@@ -36,9 +37,7 @@ export default function Dashboard() {
     const [lastTransaction, setLastTransaction] = useState(null);
     const [showPopup, setShowPopup] = useState(false);
 
-    const [dragTimerRef, setDragTimerRef] = useState(null); // Fix unused ref logic, simpler to use react refs but let's keep it safe
-    const dragTimerInstance = useRef(null);
-    const hoveredCategoryRef = useRef(null);
+    const [itemToCategorize, setItemToCategorize] = useState(null);
 
     const [selectedCategoryName, setSelectedCategoryName] = useState(null);
     const [categoryInput, setCategoryInput] = useState('');
@@ -100,12 +99,12 @@ export default function Dashboard() {
 
     const fetchData = async () => {
         try {
-            const catRes = await axios.get('http://localhost:5000/api/categories', {
+            const catRes = await axios.get(`${API_BASE_URL}/categories`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setDbCategories(catRes.data);
 
-            const transRes = await axios.get('http://localhost:5000/api/lists', {
+            const transRes = await axios.get(`${API_BASE_URL}/lists`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const lists = transRes.data;
@@ -146,7 +145,7 @@ export default function Dashboard() {
 
         try {
             setLoading(true);
-            const res = await axios.post('http://localhost:5000/api/lists', { input: text }, {
+            const res = await axios.post(`${API_BASE_URL}/lists`, { input: text }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -169,75 +168,30 @@ export default function Dashboard() {
         }
     };
 
-    const handleDrag = (event, info, item) => {
-        const x = info.point.x;
-        const y = info.point.y;
+    const handleAssignCategory = async (item, newCategory) => {
+        try {
+            setLoading(true);
+            await axios.put(`${API_BASE_URL}/lists/${item._id}`, { category_name: newCategory }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            await fetchData();
 
-        // Find the element under the pointer
-        let draggedEl = event.target || event.srcElement;
-        if (draggedEl) {
-            // Need the actual container if child was clicked
-            if (!draggedEl.style) draggedEl = draggedEl.parentElement;
-
-            const originalDisplay = draggedEl.style ? draggedEl.style.display : '';
-            if (draggedEl.style) draggedEl.style.display = 'none';
-
-            const droppedEl = document.elementFromPoint(x, y);
-
-            if (draggedEl.style) draggedEl.style.display = originalDisplay;
-
-            const categoryDropZone = droppedEl?.closest('[data-category]');
-
-            if (categoryDropZone) {
-                const newCategory = categoryDropZone.getAttribute('data-category');
-
-                if (hoveredCategoryRef.current !== newCategory) {
-                    hoveredCategoryRef.current = newCategory;
-                    if (dragTimerInstance.current) clearTimeout(dragTimerInstance.current);
-
-                    dragTimerInstance.current = setTimeout(async () => {
-                        // Assign transaction after 1 second of holding
-                        if (hoveredCategoryRef.current === newCategory && newCategory !== item.category_name) {
-                            try {
-                                setLoading(true);
-                                await axios.put(`http://localhost:5000/api/lists/${item._id}`, { category_name: newCategory }, {
-                                    headers: { Authorization: `Bearer ${token}` }
-                                });
-                                await fetchData();
-
-                                setLastTransaction({ ...item, category_name: newCategory });
-                                setShowPopup(true);
-                                setTimeout(() => setShowPopup(false), 4000);
-                            } catch (err) {
-                                console.error('Update failed', err);
-                            } finally {
-                                setLoading(false);
-                                hoveredCategoryRef.current = null;
-                            }
-                        }
-                    }, 1000); // 1-second delay
-                }
-            } else {
-                // Pointer is no longer over a category
-                if (hoveredCategoryRef.current) {
-                    hoveredCategoryRef.current = null;
-                    if (dragTimerInstance.current) clearTimeout(dragTimerInstance.current);
-                }
-            }
+            setLastTransaction({ ...item, category_name: newCategory });
+            setShowPopup(true);
+            setTimeout(() => setShowPopup(false), 4000);
+            setItemToCategorize(null);
+        } catch (err) {
+            console.error('Update failed', err);
+        } finally {
+            setLoading(false);
         }
-    };
-
-    const handleDragEnd = async (event, info, item) => {
-        // Clear hover timer if dropped before 1s
-        hoveredCategoryRef.current = null;
-        if (dragTimerInstance.current) clearTimeout(dragTimerInstance.current);
     };
 
     const handleDeleteTransaction = async (id) => {
         if (!window.confirm("Bạn có chắc chắn muốn xóa khoản này?")) return;
         try {
             setLoading(true);
-            await axios.delete(`http://localhost:5000/api/lists/${id}`, {
+            await axios.delete(`${API_BASE_URL}/lists/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             await fetchData();
@@ -257,7 +211,7 @@ export default function Dashboard() {
     const handleFinishMonth = async () => {
         try {
             setLoading(true);
-            const res = await axios.post('http://localhost:5000/api/lists/end-month', {}, {
+            const res = await axios.post(`${API_BASE_URL}/lists/end-month`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setSnackbarObj({
@@ -447,8 +401,15 @@ export default function Dashboard() {
                     return (
                         <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 2, mb: 1, mt: 0 }}>
                             {visibleUnassignedItems.map(item => (
-                                <motion.div key={item._id} drag dragSnapToOrigin={true} onDragEnd={(e, info) => handleDragEnd(e, info, item)} whileDrag={{ scale: 1.1, zIndex: 100 }} style={{ zIndex: 50 }}>
-                                    <Paper sx={{ p: 1.5, borderRadius: 5, bgcolor: '#fff', textAlign: 'center', boxShadow: 3, minWidth: 100, cursor: 'grab', border: '2px dashed #ff9800' }}>
+                                <motion.div
+                                    key={item._id}
+                                    onClick={() => setItemToCategorize(item)}
+                                    drag
+                                    dragSnapToOrigin={true}
+                                    whileDrag={{ scale: 1.1, zIndex: 100 }}
+                                    style={{ zIndex: 50, cursor: 'grab' }}
+                                >
+                                    <Paper sx={{ p: 1.5, borderRadius: 5, bgcolor: '#fff', textAlign: 'center', boxShadow: 3, minWidth: 100, border: '2px dashed #ff9800' }}>
                                         <Typography variant="caption" sx={{ color: '#ff9800', display: 'block', mb: 0.5, fontWeight: 'bold' }}>CHƯA PHÂN LOẠI</Typography>
                                         <Typography variant="body2" fontWeight="bold">{getTransactionKeyword(item.content)}</Typography>
                                         <Typography variant="body2" color="error">{(item.price || 0).toLocaleString('vi-VN')}đ</Typography>
@@ -470,22 +431,21 @@ export default function Dashboard() {
 
                         return (
                             <Box key={dbCat._id || key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
-                                {/* Render draggable transaction items assigned to this category */}
+                                {/* Render click-to-categorize transaction items assigned to this category */}
                                 <Box sx={{ position: 'absolute', top: -30, width: '100%', height: 40 }}>
                                     {catItems.map((item, idx) => (
                                         <motion.div
                                             key={item._id || idx}
+                                            // onClick={() => setItemToCategorize(item)}
                                             drag
                                             dragSnapToOrigin={true}
-                                            onDrag={(e, info) => handleDrag(e, info, item)}
-                                            onDragEnd={(e, info) => handleDragEnd(e, info, item)}
                                             dragConstraints={{ left: -50, right: 50, top: -50, bottom: 50 }}
                                             whileDrag={{ scale: 1.1, zIndex: 100 }}
                                             initial={{ y: 20, opacity: 0 }}
                                             animate={{ y: 0, opacity: 1 }}
-                                            style={{ position: 'absolute', top: idx * -10, left: '10%', right: '10%', zIndex: 10 + idx }}
+                                            style={{ position: 'absolute', top: idx * -10, left: '10%', right: '10%', zIndex: 10 + idx, cursor: 'grab' }}
                                         >
-                                            <Paper sx={{ p: '2px 6px', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'grab' }}>
+                                            <Paper sx={{ p: '2px 6px', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 'bold' }}>
                                                     {getTransactionKeyword(item.content)}
                                                 </Typography>
@@ -598,6 +558,36 @@ export default function Dashboard() {
                     <Button onClick={handleFinishMonth} variant="contained" color="error" disabled={loading} autoFocus>
                         {loading ? <CircularProgress size={24} color="inherit" /> : 'Chốt tháng'}
                     </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Categorize Dialog */}
+            <Dialog open={!!itemToCategorize} onClose={() => setItemToCategorize(null)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>Chọn danh mục</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" align="center" sx={{ mb: 3 }}>
+                        Phân loại cho hạn mục: <b>{itemToCategorize ? getTransactionKeyword(itemToCategorize.content) : ''}</b>
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, pb: 2 }}>
+                        {dbCategories.map((cat) => {
+                            const config = categoryConfig[cat.category_name] || { icon: '📦', color: '#E2E3E5', name: cat.category_name.toUpperCase() };
+                            return (
+                                <Box
+                                    key={cat._id}
+                                    onClick={() => handleAssignCategory(itemToCategorize, cat.category_name)}
+                                    sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', p: 1, borderRadius: 3, transition: 'background-color 0.2s', '&:hover': { bgcolor: '#f0f0f0' } }}
+                                >
+                                    <Paper elevation={0} sx={{ width: 56, height: 56, borderRadius: '50%', bgcolor: config.color, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1, boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
+                                        <Typography fontSize={28}>{config.icon}</Typography>
+                                    </Paper>
+                                    <Typography variant="caption" align="center" fontWeight="bold">{config.name}</Typography>
+                                </Box>
+                            );
+                        })}
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setItemToCategorize(null)} color="inherit" fullWidth>Hủy</Button>
                 </DialogActions>
             </Dialog>
 
