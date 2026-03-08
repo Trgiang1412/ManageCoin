@@ -105,7 +105,7 @@ router.get('/categories', authMiddleware, async (req, res) => {
 router.get('/lists', authMiddleware, async (req, res) => {
     try {
         const lists = await List.find({
-            user_id: req.user.id,
+            // user_id: req.user.id,
             $or: [
                 { done_month: null },
                 { done_month: { $exists: false } }
@@ -122,7 +122,7 @@ router.post('/lists/end-month', authMiddleware, async (req, res) => {
     try {
         // Find all unfinished lists for this user
         const query = {
-            user_id: req.user.id,
+            // user_id: req.user.id,
             $or: [
                 { done_month: null },
                 { done_month: { $exists: false } }

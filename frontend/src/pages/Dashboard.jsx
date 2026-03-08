@@ -36,6 +36,10 @@ export default function Dashboard() {
     // Popup state
     const [lastTransaction, setLastTransaction] = useState(null);
     const [showPopup, setShowPopup] = useState(false);
+    const [recentAddedIds, setRecentAddedIds] = useState([]);
+
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [itemToDeleteId, setItemToDeleteId] = useState(null);
 
     const [itemToCategorize, setItemToCategorize] = useState(null);
 
@@ -156,10 +160,17 @@ export default function Dashboard() {
             setLastTransaction(transaction);
             setShowPopup(true);
 
-            // Auto hide popup after 4 seconds
+            if (transaction.category_name && transaction.category_name !== '') {
+                setRecentAddedIds(prev => [...prev, transaction._id]);
+                setTimeout(() => {
+                    setRecentAddedIds(prev => prev.filter(id => id !== transaction._id));
+                }, 5000);
+            }
+
+            // Auto hide popup after 5 seconds
             setTimeout(() => {
                 setShowPopup(false);
-            }, 4000);
+            }, 5000);
 
         } catch (err) {
             console.error(err);
@@ -178,7 +189,13 @@ export default function Dashboard() {
 
             setLastTransaction({ ...item, category_name: newCategory });
             setShowPopup(true);
-            setTimeout(() => setShowPopup(false), 4000);
+
+            setRecentAddedIds(prev => [...prev, item._id]);
+            setTimeout(() => {
+                setRecentAddedIds(prev => prev.filter(id => id !== item._id));
+            }, 5000);
+
+            setTimeout(() => setShowPopup(false), 5000);
             setItemToCategorize(null);
         } catch (err) {
             console.error('Update failed', err);
@@ -187,11 +204,16 @@ export default function Dashboard() {
         }
     };
 
-    const handleDeleteTransaction = async (id) => {
-        if (!window.confirm("Bạn có chắc chắn muốn xóa khoản này?")) return;
+    const handleDeleteTransaction = (id) => {
+        setItemToDeleteId(id);
+        setDeleteConfirmOpen(true);
+    };
+
+    const confirmDeleteTransaction = async () => {
+        if (!itemToDeleteId) return;
         try {
             setLoading(true);
-            await axios.delete(`${API_BASE_URL}/lists/${id}`, {
+            await axios.delete(`${API_BASE_URL}/lists/${itemToDeleteId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             await fetchData();
@@ -199,6 +221,8 @@ export default function Dashboard() {
             console.error('Delete failed', err);
         } finally {
             setLoading(false);
+            setDeleteConfirmOpen(false);
+            setItemToDeleteId(null);
         }
     };
 
@@ -263,7 +287,7 @@ export default function Dashboard() {
     };
 
     return (
-        <Box sx={{ maxWidth: 480, margin: '0 auto', height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#FAFAFA', position: 'relative', overflow: 'hidden' }}>
+        <Box sx={{ maxWidth: 480, margin: '0 auto', height: '100dvh', display: 'flex', flexDirection: 'column', bgcolor: '#FAFAFA', position: 'relative', overflow: 'hidden' }}>
 
             {/* Custom Fancy Popup */}
             <AnimatePresence>
@@ -387,83 +411,101 @@ export default function Dashboard() {
                 </Box>
             </Box>
 
-            <Box sx={{ flex: 1, overflowY: 'auto', px: 3, pb: 12 }}>
+            <Box sx={{ flex: 1, overflowY: 'auto', px: 3, pb: 12, display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ mt: 'auto', width: '100%' }}>
+                    {/* Unassigned / Dragable Area */}
+                    {(() => {
+                        const unassignedItems = transactions.filter(t => !t.category_name || t.category_name === '');
+                        if (unassignedItems.length === 0) return null;
 
-                {/* Unassigned / Dragable Area */}
-                {/* Unassigned / Dragable Area */}
-                {(() => {
-                    const unassignedItems = transactions.filter(t => !t.category_name || t.category_name === '');
-                    if (unassignedItems.length === 0) return null;
-
-                    // Limit to 2 unassigned items shown at a time
-                    const visibleUnassignedItems = unassignedItems.slice(0, 2);
-
-                    return (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 2, mb: 1, mt: 0 }}>
-                            {visibleUnassignedItems.map(item => (
-                                <motion.div
-                                    key={item._id}
-                                    onClick={() => setItemToCategorize(item)}
-                                    drag
-                                    dragSnapToOrigin={true}
-                                    whileDrag={{ scale: 1.1, zIndex: 100 }}
-                                    style={{ zIndex: 50, cursor: 'grab' }}
-                                >
-                                    <Paper sx={{ p: 1.5, borderRadius: 5, bgcolor: '#fff', textAlign: 'center', boxShadow: 3, minWidth: 100, border: '2px dashed #ff9800' }}>
-                                        <Typography variant="caption" sx={{ color: '#ff9800', display: 'block', mb: 0.5, fontWeight: 'bold' }}>CHƯA PHÂN LOẠI</Typography>
-                                        <Typography variant="body2" fontWeight="bold">{getTransactionKeyword(item.content)}</Typography>
-                                        <Typography variant="body2" color="error">{(item.price || 0).toLocaleString('vi-VN')}đ</Typography>
-                                    </Paper>
-                                </motion.div>
-                            ))}
-                        </Box>
-                    );
-                })()}
-
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, pt: 4 }}>
-                    {dbCategories.map((dbCat) => {
-                        const key = dbCat.category_name;
-                        const config = categoryConfig[key] || { icon: '📦', color: '#E2E3E5', name: key.toUpperCase() };
-                        // Unassigned is handled above
-
-                        // Find recent items for this category to display as drag bubbles
-                        const catItems = transactions.filter(t => t.category_name === key).slice(-2);
+                        // Limit to 2 unassigned items shown at a time
+                        const visibleUnassignedItems = unassignedItems.slice(0, 2);
 
                         return (
-                            <Box key={dbCat._id || key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
-                                {/* Render click-to-categorize transaction items assigned to this category */}
-                                <Box sx={{ position: 'absolute', top: -30, width: '100%', height: 40 }}>
-                                    {catItems.map((item, idx) => (
-                                        <motion.div
-                                            key={item._id || idx}
-                                            // onClick={() => setItemToCategorize(item)}
-                                            drag
-                                            dragSnapToOrigin={true}
-                                            dragConstraints={{ left: -50, right: 50, top: -50, bottom: 50 }}
-                                            whileDrag={{ scale: 1.1, zIndex: 100 }}
-                                            initial={{ y: 20, opacity: 0 }}
-                                            animate={{ y: 0, opacity: 1 }}
-                                            style={{ position: 'absolute', top: idx * -10, left: '10%', right: '10%', zIndex: 10 + idx, cursor: 'grab' }}
+                            <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 2, mb: 1, mt: 0 }}>
+                                {visibleUnassignedItems.map(item => (
+                                    <motion.div
+                                        key={item._id}
+                                        drag
+                                        dragSnapToOrigin={true}
+                                        whileDrag={{ scale: 1.1, zIndex: 100 }}
+                                        style={{ zIndex: 50, cursor: 'grab', position: 'relative', marginTop: '12px', marginRight: '12px' }}
+                                    >
+                                        <Paper onClick={() => setItemToCategorize(item)} sx={{ px: 1.5, py: 0.8, borderRadius: 5, bgcolor: '#fff', textAlign: 'center', boxShadow: 3, border: '1px dashed #ff9800', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: '80px' }}>
+                                            <Typography variant="caption" sx={{ color: '#ff9800', display: 'block', mb: 0.1, fontWeight: 'bold', fontSize: '0.6rem' }}>CHƯA PHÂN LOẠI</Typography>
+                                            <Typography variant="body2" fontWeight="bold" sx={{ fontSize: '0.8rem', lineHeight: 1.2 }}>{getTransactionKeyword(item.content)}</Typography>
+                                        </Paper>
+                                        <IconButton
+                                            size="small"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteTransaction(item._id);
+                                            }}
+                                            sx={{
+                                                position: 'absolute',
+                                                top: -10,
+                                                right: -10,
+                                                bgcolor: 'white',
+                                                boxShadow: 2,
+                                                padding: '2px',
+                                                border: '1px solid #eee',
+                                                '&:hover': { bgcolor: '#ffebee' },
+                                                zIndex: 10
+                                            }}
                                         >
-                                            <Paper sx={{ p: '2px 6px', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 'bold' }}>
-                                                    {getTransactionKeyword(item.content)}
-                                                </Typography>
-                                            </Paper>
-                                        </motion.div>
-                                    ))}
-                                </Box>
-
-                                <Paper elevation={0} data-category={dbCat.category_name} onClick={() => setSelectedCategoryName(dbCat.category_name)} sx={{ cursor: 'pointer', width: 60, height: 75, borderRadius: '30px 30px 12px 12px', bgcolor: config.color, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5, boxShadow: '0 4px 10px rgba(0,0,0,0.03)', zIndex: 1, transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.05)' } }}>
-                                    <Typography fontSize={28}>{config.icon}</Typography>
-                                </Paper>
-                                <Typography variant="caption" fontWeight="bold" color="text.secondary">{config.name}</Typography>
-                                <Typography variant="caption" fontWeight="bold" sx={{ mt: 0.5 }}>
-                                    {((categoryTotals[key] || 0) / 1000).toFixed(1).replace('.0', '') + (categoryTotals[key] >= 1000 ? 'k' : 'đ')}
-                                </Typography>
+                                            <CloseIcon sx={{ fontSize: 12, color: 'error.main' }} />
+                                        </IconButton>
+                                    </motion.div>
+                                ))}
                             </Box>
                         );
-                    })}
+                    })()}
+
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, pt: 4 }}>
+                        {dbCategories.map((dbCat) => {
+                            const key = dbCat.category_name;
+                            const config = categoryConfig[key] || { icon: '📦', color: '#E2E3E5', name: key.toUpperCase() };
+                            // Unassigned is handled above
+
+                            // Find recent items for this category to display as drag bubbles
+                            const catItems = transactions.filter(t => t.category_name === key && recentAddedIds.includes(t._id)).slice(-2);
+
+                            return (
+                                <Box key={dbCat._id || key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                                    {/* Render click-to-categorize transaction items assigned to this category */}
+                                    <Box sx={{ position: 'absolute', top: -30, width: '100%', height: 40 }}>
+                                        {catItems.map((item, idx) => (
+                                            <motion.div
+                                                key={item._id || idx}
+                                                // onClick={() => setItemToCategorize(item)}
+                                                drag
+                                                dragSnapToOrigin={true}
+                                                dragConstraints={{ left: -50, right: 50, top: -50, bottom: 50 }}
+                                                whileDrag={{ scale: 1.1, zIndex: 100 }}
+                                                initial={{ y: 20, opacity: 0 }}
+                                                animate={{ y: 0, opacity: 1 }}
+                                                style={{ position: 'absolute', top: idx * -10, left: '10%', right: '10%', zIndex: 10 + idx, cursor: 'grab' }}
+                                            >
+                                                <Paper sx={{ p: '2px 6px', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 'bold' }}>
+                                                        {getTransactionKeyword(item.content)}
+                                                    </Typography>
+                                                </Paper>
+                                            </motion.div>
+                                        ))}
+                                    </Box>
+
+                                    <Paper elevation={0} data-category={dbCat.category_name} onClick={() => setSelectedCategoryName(dbCat.category_name)} sx={{ cursor: 'pointer', width: 60, height: 75, borderRadius: '30px 30px 12px 12px', bgcolor: config.color, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5, boxShadow: '0 4px 10px rgba(0,0,0,0.03)', zIndex: 1, transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.05)' } }}>
+                                        <Typography fontSize={28}>{config.icon}</Typography>
+                                    </Paper>
+                                    <Typography variant="caption" fontWeight="bold" color="text.secondary">{config.name}</Typography>
+                                    <Typography variant="caption" fontWeight="bold" sx={{ mt: 0.5 }}>
+                                        {((categoryTotals[key] || 0) / 1000).toFixed(1).replace('.0', '') + (categoryTotals[key] >= 1000 ? 'k' : 'đ')}
+                                    </Typography>
+                                </Box>
+                            );
+                        })}
+                    </Box>
                 </Box>
                 <div ref={messagesEndRef} />
             </Box>
@@ -557,6 +599,22 @@ export default function Dashboard() {
                     <Button onClick={() => setOpenFinishMonthDialog(false)} color="inherit" disabled={loading}>Hủy</Button>
                     <Button onClick={handleFinishMonth} variant="contained" color="error" disabled={loading} autoFocus>
                         {loading ? <CircularProgress size={24} color="inherit" /> : 'Chốt tháng'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={deleteConfirmOpen} onClose={() => !loading && setDeleteConfirmOpen(false)}>
+                <DialogTitle>Xác nhận xóa</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Bạn có chắc chắn muốn xóa khoản này? Hành động này không thể hoàn tác.
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDeleteConfirmOpen(false)} color="inherit" disabled={loading}>Hủy</Button>
+                    <Button onClick={confirmDeleteTransaction} variant="contained" color="error" disabled={loading} autoFocus>
+                        {loading ? <CircularProgress size={24} color="inherit" /> : 'Xóa'}
                     </Button>
                 </DialogActions>
             </Dialog>
