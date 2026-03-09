@@ -110,7 +110,7 @@ router.get('/lists', authMiddleware, async (req, res) => {
                 { done_month: null },
                 { done_month: { $exists: false } }
             ]
-        }).populate('id_category');
+        }).populate('id_category').populate('user_id', 'name');
         res.json(lists);
     } catch (err) {
         console.error(err.message);

@@ -25,6 +25,19 @@ const categoryConfig = {
     'Khác': { icon: '📦', color: '#E2E3E5', name: 'KHÁC' }
 };
 
+const formatCurrencyShort = (value) => {
+    if (value >= 1000000000) {
+        return (value / 1000000000).toFixed(1).replace('.0', '') + ' tỷ';
+    }
+    if (value >= 1000000) {
+        return (value / 1000000).toFixed(1).replace('.0', '') + 'tr';
+    }
+    if (value >= 1000) {
+        return (value / 1000).toFixed(1).replace('.0', '') + 'k';
+    }
+    return value + 'đ';
+};
+
 export default function Dashboard() {
     const navigate = useNavigate();
     const [balance, setBalance] = useState(0);
@@ -500,7 +513,7 @@ export default function Dashboard() {
                                     </Paper>
                                     <Typography variant="caption" fontWeight="bold" color="text.secondary">{config.name}</Typography>
                                     <Typography variant="caption" fontWeight="bold" sx={{ mt: 0.5 }}>
-                                        {((categoryTotals[key] || 0) / 1000).toFixed(1).replace('.0', '') + (categoryTotals[key] >= 1000 ? 'k' : 'đ')}
+                                        {formatCurrencyShort(categoryTotals[key] || 0)}
                                     </Typography>
                                 </Box>
                             );
@@ -565,7 +578,7 @@ export default function Dashboard() {
                                                 <ListItemText
                                                     primary={getTransactionKeyword(t.content) || 'Khoản chi'}
                                                     primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
-                                                    secondary={new Date(t.date).toLocaleDateString('vi-VN')}
+                                                    secondary={`${new Date(t.date).toLocaleDateString('vi-VN')}${t.user_id?.name ? ` • ${t.user_id.name}` : ''}`}
                                                     secondaryTypographyProps={{ variant: 'caption' }}
                                                 />
                                                 <Typography variant="body2" fontWeight="bold" sx={{ mr: 2, color: t.id_category?.type_category === 'income' ? '#4caf50' : '#e57373' }}>

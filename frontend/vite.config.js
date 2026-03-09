@@ -13,6 +13,11 @@ export default defineConfig({
         short_name: 'Managecoin',
         description: 'Quản lý chi tiêu',
         theme_color: '#ffffff',
+        background_color: '#ffffff',
+        display: 'standalone',
+        scope: '/',
+        start_url: '/',
+        orientation: 'portrait',
         icons: [
           {
             src: '/logo.svg', // Temporary icon URL
@@ -23,6 +28,12 @@ export default defineConfig({
             src: '/logo.svg', // Temporary icon URL
             sizes: '512x512',
             type: 'image/png'
+          },
+          {
+            src: '/logo.svg',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       }
