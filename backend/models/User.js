@@ -17,6 +17,16 @@ const userSchema = new mongoose.Schema({
     image: {
         type: String,
         required: false
+    },
+    family_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Family',
+        default: null
+    },
+    sendfamily: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Family',
+        default: null
     }
 }, { timestamps: true });
 

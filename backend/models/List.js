@@ -6,6 +6,11 @@ const listSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    family_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Family',
+        default: null
+    },
     category_name: {
         type: String,
         required: false

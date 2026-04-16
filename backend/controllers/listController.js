@@ -1,15 +1,24 @@
 const List = require('../models/List');
 const Category = require('../models/Category');
+const User = require('../models/User');
 
 exports.getLists = async (req, res) => {
     try {
-        const lists = await List.find({
-            // user_id: req.user.id,
+        const user = await User.findById(req.user.id);
+        const query = {
             $or: [
                 { done_month: null },
                 { done_month: { $exists: false } }
             ]
-        }).populate('id_category').populate('user_id', 'name');
+        };
+
+        if (user.family_id) {
+            query.family_id = user.family_id;
+        } else {
+            query.user_id = req.user.id;
+        }
+
+        const lists = await List.find(query).populate('id_category').populate('user_id', 'name');
         res.json(lists);
     } catch (err) {
         console.error(err.message);
@@ -19,14 +28,19 @@ exports.getLists = async (req, res) => {
 
 exports.endMonth = async (req, res) => {
     try {
-        // Find all unfinished lists for this user
+        const user = await User.findById(req.user.id);
         const query = {
-            // user_id: req.user.id,
             $or: [
                 { done_month: null },
                 { done_month: { $exists: false } }
             ]
         };
+
+        if (user.family_id) {
+            query.family_id = user.family_id;
+        } else {
+            query.user_id = req.user.id;
+        }
 
         const unfinishedLists = await List.find(query).sort({ date: 1 });
 
@@ -123,8 +137,11 @@ exports.createList = async (req, res) => {
             idCategory = category._id;
         }
 
+        const user = await User.findById(req.user.id);
+
         const newList = new List({
             user_id: req.user.id,
+            family_id: user.family_id || null,
             category_name: finalCategory, // Using the category name of the type
             id_category: idCategory,
             price: parsedAmount,
@@ -166,8 +183,15 @@ exports.updateList = async (req, res) => {
 
 exports.deleteList = async (req, res) => {
     try {
-        const list = await List.findOne({ _id: req.params.id, user_id: req.user.id });
-        if (!list) return res.status(404).json({ message: 'Transaction not found' });
+        const user = await User.findById(req.user.id);
+        const query = { _id: req.params.id };
+        if (user.family_id) {
+            query.family_id = user.family_id;
+        } else {
+            query.user_id = req.user.id;
+        }
+        const list = await List.findOne(query);
+        if (!list) return res.status(404).json({ message: 'Transaction not found or unauthorized' });
 
         await list.deleteOne();
         res.json({ message: 'Transaction deleted' });
