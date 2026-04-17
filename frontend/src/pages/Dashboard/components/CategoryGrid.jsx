@@ -56,7 +56,9 @@ export default function CategoryGrid({ dbCategories, transactions, recentAddedId
                         <Paper elevation={0} data-category={dbCat.category_name} onClick={() => setSelectedCategoryName(dbCat.category_name)} sx={{ cursor: 'pointer', width: 60, height: 75, borderRadius: '30px 30px 12px 12px', bgcolor: config.color, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5, boxShadow: '0 4px 10px rgba(0,0,0,0.03)', zIndex: 1, transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.05)' } }}>
                             <Typography fontSize={28}>{config.icon}</Typography>
                         </Paper>
-                        <Typography variant="caption" fontWeight="bold" color="text.secondary">{config.name}</Typography>
+                        <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ textAlign: 'center' }}>
+                            {config.name}
+                        </Typography>
                         <Typography variant="caption" fontWeight="bold" sx={{ mt: 0.5 }}>
                             {formatCurrencyShort(categoryTotals[key] || 0)}
                         </Typography>
