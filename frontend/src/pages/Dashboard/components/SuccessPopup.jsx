@@ -28,7 +28,7 @@ export default function SuccessPopup({ showPopup, lastTransaction, categoryConfi
                             </Typography>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <Typography variant="body2" sx={{ color: '#81c784', fontWeight: 'bold' }}>
-                                    💰 Thu: {(categoryTotals['Thu nhập'] || 0).toLocaleString('vi-VN')}đ
+                                    💰 Hạn mức: {(categoryTotals['Hạn mức tháng'] || 0).toLocaleString('vi-VN')}đ
                                 </Typography>
                                 <Typography variant="body2" sx={{ color: '#e57373', fontWeight: 'bold' }}>
                                     💸 Chi: {totalExpense.toLocaleString('vi-VN')}đ

@@ -66,7 +66,7 @@ exports.endMonth = async (req, res) => {
 
 exports.createList = async (req, res) => {
     try {
-        let { input } = req.body;
+        let { input, overrideCategory } = req.body;
         if (!input) {
             return res.status(400).json({ message: 'Input is required' });
         }
@@ -85,7 +85,7 @@ exports.createList = async (req, res) => {
             // Fallback for just numbers at the end without leading space e.g., "Food50000"
             const fallbackMatch = input.match(/((?:\d+[.,]?\d*)|(?:\d+))\s*(k|m|tr|triệu|trieu|nghìn|nghin|đ|d)?$/i);
             if (!fallbackMatch) {
-                return res.status(400).json({ message: 'Invalid format. Use "Category Amount" e.g "Food 50000" or "Thu nhập 10 triệu"' });
+                return res.status(400).json({ message: 'Invalid format. Use "Category Amount" e.g "Food 50000" or "Hạn mức tháng 10 triệu"' });
             }
             amountStr = fallbackMatch[1].replace(/,/g, '.');
             unit = fallbackMatch[2] ? fallbackMatch[2].toLowerCase() : '';
@@ -110,12 +110,16 @@ exports.createList = async (req, res) => {
         const itemStrLower = categoryStr.toLowerCase().trim();
         let targetCategoryName = null;
 
-        // Auto categorization logic based ONLY on what we want to map to existing ones
-        if (itemStrLower.match(/(bún|phở|cơm|bánh|nước|cafe|trà|uống|ăn|food|mì|nhậu|lẩu|gà|bò|thịt|cá|rau|sữa|chợ)/)) targetCategoryName = 'Ăn uống';
-        else if (itemStrLower.match(/(xe|xăng|grab|taxi|bus|vé|di chuyển|car|motor)/)) targetCategoryName = 'Di chuyển';
-        else if (itemStrLower.match(/(áo|quần|giày|túi|đồ|siêu thị|mua|shopping|shopee|lazada|son|quần áo|mỹ phẩm)/)) targetCategoryName = 'Mua sắm';
-        else if (itemStrLower.match(/(tiết kiệm|heo|gửi|save)/)) targetCategoryName = 'Tiết kiệm';
-        else if (itemStrLower.match(/(lương|thưởng|bán|lãi|thu|thêm|income)/)) targetCategoryName = 'Thu nhập';
+        if (overrideCategory) {
+            targetCategoryName = overrideCategory;
+        } else {
+            // Auto categorization logic based ONLY on what we want to map to existing ones
+            if (itemStrLower.match(/(bún|phở|cơm|bánh|nước|cafe|trà|uống|ăn|food|mì|nhậu|lẩu|gà|bò|thịt|cá|rau|sữa|chợ|kem|trà sữa|bim bim|sữa chua|bánh mì|bánh tráng|cà phê)/)) targetCategoryName = 'Ăn uống';
+            else if (itemStrLower.match(/(xe|xăng|grab|taxi|bus|vé|di chuyển|car|motor)/)) targetCategoryName = 'Di chuyển';
+            else if (itemStrLower.match(/(áo|quần|giày|túi|đồ|siêu thị|mua|shopping|shopee|lazada|son|quần áo|mỹ phẩm)/)) targetCategoryName = 'Mua sắm';
+            else if (itemStrLower.match(/(tiết kiệm|heo|gửi|save)/)) targetCategoryName = 'Tiết kiệm';
+            else if (itemStrLower.match(/(hạn mức|lương|thưởng|bán|lãi|thu|thêm|income|thu nhập|cat)/)) targetCategoryName = 'Hạn mức tháng';
+        }
 
         // 1. Try to find the exact matched category from our auto-categorization
         let category = null;
@@ -124,7 +128,7 @@ exports.createList = async (req, res) => {
         }
 
         // 2. If no auto-match, or the auto-matched category doesn't actually exist in the DB, try to find an exact match from user input
-        if (!category) {
+        if (!category && !overrideCategory) {
             category = await Category.findOne({ user_id: req.user.id, category_name: new RegExp(`^${categoryStr}$`, 'i') });
         }
 

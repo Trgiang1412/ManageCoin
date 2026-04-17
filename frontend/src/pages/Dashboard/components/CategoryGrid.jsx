@@ -24,13 +24,31 @@ export default function CategoryGrid({ dbCategories, transactions, recentAddedId
                                     whileDrag={{ scale: 1.1, zIndex: 100 }}
                                     initial={{ y: 20, opacity: 0 }}
                                     animate={{ y: 0, opacity: 1 }}
-                                    style={{ position: 'absolute', top: idx * -10, left: '10%', right: '10%', zIndex: 10 + idx, cursor: 'grab' }}
+                                    style={{ position: 'absolute', top: idx * -15, width: '100%', display: 'flex', justifyContent: 'center', zIndex: 10 + idx, cursor: 'grab', filter: 'drop-shadow(0px 3px 5px rgba(0,0,0,0.15))' }}
                                 >
-                                    <Paper sx={{ p: '2px 6px', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 'bold' }}>
+                                    <Box sx={{ 
+                                        p: '8px 16px', 
+                                        borderRadius: '20px', 
+                                        bgcolor: '#fff', 
+                                        textAlign: 'center', 
+                                        position: 'relative',
+                                        minWidth: '110%',
+                                        maxWidth: '150%',
+                                        '&::after': {
+                                            content: '""',
+                                            position: 'absolute',
+                                            bottom: '-8px',
+                                            left: '50%',
+                                            transform: 'translateX(-50%)',
+                                            borderWidth: '8px 8px 0',
+                                            borderStyle: 'solid',
+                                            borderColor: '#fff transparent transparent transparent',
+                                        }
+                                    }}>
+                                        <Typography variant="caption" sx={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#111', display: 'block', wordBreak: 'break-word', lineHeight: 1.2 }}>
                                             {getTransactionKeyword(item.content)}
                                         </Typography>
-                                    </Paper>
+                                    </Box>
                                 </motion.div>
                             ))}
                         </Box>

@@ -18,7 +18,7 @@ exports.register = async (req, res) => {
 
         // Seed default categories for the new user
         const defaultCategories = [
-            { user_id: user.id, category_name: 'Thu nhập', type_category: 'income' },
+            { user_id: user.id, category_name: 'Hạn mức tháng', type_category: 'income' },
             { user_id: user.id, category_name: 'Ăn uống', type_category: 'expense' },
             { user_id: user.id, category_name: 'Di chuyển', type_category: 'expense' },
             { user_id: user.id, category_name: 'Mua sắm', type_category: 'expense' },

@@ -9,15 +9,17 @@ const MONGODB_URI = process.env.MONGODB_URI;
 async function cleanDB() {
     try {
         await mongoose.connect(MONGODB_URI);
-        console.log('Connected to MongoDB');
-
-        const standardCategories = ['Thu nhập', 'Ăn uống', 'Di chuyển', 'Mua sắm', 'Tiết kiệm', 'Khác'];
+        const standardCategories = ['Hạn mức tháng', 'Ăn uống', 'Di chuyển', 'Mua sắm', 'Tiết kiệm', 'Khác'];
 
         // Get all users
         const users = await User.find();
 
         for (const user of users) {
             console.log(`Processing user ${user.email}...`);
+
+            // Migrate 'Thu nhập' to 'Hạn mức tháng' first to prevent data loss
+            await Category.updateMany({ user_id: user.id, category_name: 'Thu nhập' }, { category_name: 'Hạn mức tháng' });
+            await List.updateMany({ user_id: user.id, category_name: 'Thu nhập' }, { category_name: 'Hạn mức tháng' });
 
             // Find categories for this user that are NOT in the standard list
             const badCategories = await Category.find({
@@ -44,7 +46,7 @@ async function cleanDB() {
 
             // Ensure all default categories exist
             const defaults = [
-                { category_name: 'Thu nhập', type_category: 'income' },
+                { category_name: 'Hạn mức tháng', type_category: 'income' },
                 { category_name: 'Ăn uống', type_category: 'expense' },
                 { category_name: 'Di chuyển', type_category: 'expense' },
                 { category_name: 'Mua sắm', type_category: 'expense' },

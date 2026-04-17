@@ -1,6 +1,6 @@
 import { Paper, IconButton, InputBase, CircularProgress } from '@mui/material';
 import MicIcon from '@mui/icons-material/Mic';
-import SendIcon from '@mui/icons-material/Send';
+import PetsIcon from '@mui/icons-material/Pets';
 
 export default function TransactionInput({ handleSend, handleVoiceInput, input, setInput, isListening, loading }) {
     return (
@@ -10,7 +10,7 @@ export default function TransactionInput({ handleSend, handleVoiceInput, input, 
             </IconButton>
             <InputBase sx={{ ml: 1, flex: 1, py: 1 }} placeholder="Nhập (vd: Bún bò 30k)" value={input} onChange={(e) => setInput(e.target.value)} disabled={loading} />
             <IconButton type="submit" color="primary" sx={{ p: '10px' }} disabled={loading || !input.trim()}>
-                {loading ? <CircularProgress size={24} /> : <SendIcon />}
+                {loading ? <CircularProgress size={24} /> : <PetsIcon />}
             </IconButton>
         </Paper>
     );

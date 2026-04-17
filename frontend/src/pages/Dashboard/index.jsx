@@ -9,7 +9,7 @@ import { API_BASE_URL } from '../../config';
 
 // Import utility and basic config
 export const categoryConfig = {
-    'Thu nhập': { icon: '💰', color: '#FFF3CD', name: 'THU NHẬP' },
+    'Hạn mức tháng': { icon: '💰', color: '#FFF3CD', name: 'HẠN MỨC THÁNG' },
     'Ăn uống': { icon: '🍗', color: '#F8D7DA', name: 'ĂN UỐNG' },
     'Di chuyển': { icon: '🚗', color: '#D1ECF1', name: 'DI CHUYỂN' },
     'Mua sắm': { icon: '🛍️', color: '#E2D9F3', name: 'MUA SẮM' },
@@ -23,6 +23,8 @@ export const formatCurrencyShort = (value) => {
     if (value >= 1000) return (value / 1000).toFixed(1).replace('.0', '') + 'k';
     return value + 'đ';
 };
+
+import { playSound } from '../../utils/audio';
 
 // Import Components
 import Header from './components/Header';
@@ -172,13 +174,16 @@ export default function Dashboard() {
         processTransaction(input);
     };
 
-    const processTransaction = async (text) => {
+    const processTransaction = async (text, overrideCategory = null) => {
         if (!text.trim()) return;
         try {
             setLoading(true);
-            const res = await axios.post(`${API_BASE_URL}/lists`, { input: text }, { headers: { Authorization: `Bearer ${token}` } });
+            const payload = { input: text };
+            if (overrideCategory) payload.overrideCategory = overrideCategory;
+            const res = await axios.post(`${API_BASE_URL}/lists`, payload, { headers: { Authorization: `Bearer ${token}` } });
             await fetchData();
             setInput('');
+            playSound('success');
             
             const transaction = res.data.transaction;
             setLastTransaction(transaction);
@@ -189,7 +194,9 @@ export default function Dashboard() {
                 setTimeout(() => setRecentAddedIds(prev => prev.filter(id => id !== transaction._id)), 5000);
             }
             setTimeout(() => setShowPopup(false), 5000);
-        } catch (err) {} finally { setLoading(false); }
+        } catch (err) {
+            playSound('error');
+        } finally { setLoading(false); }
     };
 
     const handleAssignCategory = async (item, newCategory) => {
@@ -198,12 +205,15 @@ export default function Dashboard() {
             await axios.put(`${API_BASE_URL}/lists/${item._id}`, { category_name: newCategory }, { headers: { Authorization: `Bearer ${token}` } });
             await fetchData();
             setLastTransaction({ ...item, category_name: newCategory });
+            playSound('success');
             setShowPopup(true);
             setRecentAddedIds(prev => [...prev, item._id]);
             setTimeout(() => setRecentAddedIds(prev => prev.filter(id => id !== item._id)), 5000);
             setTimeout(() => setShowPopup(false), 5000);
             setItemToCategorize(null);
-        } catch (err) {} finally { setLoading(false); }
+        } catch (err) {
+            playSound('error');
+        } finally { setLoading(false); }
     };
 
     const handleDeleteTransaction = (id) => { setItemToDeleteId(id); setDeleteConfirmOpen(true); };
@@ -214,7 +224,10 @@ export default function Dashboard() {
             setLoading(true);
             await axios.delete(`${API_BASE_URL}/lists/${itemToDeleteId}`, { headers: { Authorization: `Bearer ${token}` } });
             await fetchData();
-        } catch (err) {} finally { setLoading(false); setDeleteConfirmOpen(false); setItemToDeleteId(null); }
+            playSound('success');
+        } catch (err) {
+            playSound('error');
+        } finally { setLoading(false); setDeleteConfirmOpen(false); setItemToDeleteId(null); }
     };
 
     const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); navigate('/login'); };
@@ -225,9 +238,11 @@ export default function Dashboard() {
             const res = await axios.post(`${API_BASE_URL}/lists/end-month`, {}, { headers: { Authorization: `Bearer ${token}` } });
             setSnackbarObj({ open: true, message: `Thành công! Đã chốt chi tiêu cho tháng ${res.data.done_month} với ${res.data.count} khoản chi.`, severity: 'success' });
             setOpenFinishMonthDialog(false);
+            playSound('success');
             await fetchData();
         } catch (err) {
             setSnackbarObj({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra khi chốt tháng', severity: 'error' });
+            playSound('error');
         } finally { setLoading(false); }
     };
 
@@ -238,10 +253,14 @@ export default function Dashboard() {
         const catName = t.category_name || 'Khác';
         if (!categoryTotals[catName]) categoryTotals[catName] = 0;
         categoryTotals[catName] += t.price;
-        if (t.id_category?.type_category !== 'income' && catName !== 'Tiết kiệm' && catName !== 'Thu nhập') totalExpense += t.price;
+        if (t.id_category?.type_category !== 'income' && catName !== 'Tiết kiệm' && catName !== 'Hạn mức tháng') totalExpense += t.price;
     });
 
-    const getTransactionKeyword = (content) => content || '';
+    const getTransactionKeyword = (content) => {
+        if (!content) return '';
+        const keyword = content.replace(/\s+[\d.,]+\s*(k|m|tr|triệu|trieu|nghìn|nghin|đ|d|vnd)?\s*$/i, '').trim();
+        return keyword || content;
+    };
 
     const handleCreateFamily = async (name) => {
         try {
@@ -249,9 +268,11 @@ export default function Dashboard() {
             await axios.post(`${API_BASE_URL}/family`, { name }, { headers: { Authorization: `Bearer ${token}` } });
             setSnackbarObj({ open: true, message: 'Tạo nhóm gia đình thành công!', severity: 'success' });
             setOpenCreateFamily(false);
+            playSound('success');
             await fetchFamily();
         } catch (err) {
             setSnackbarObj({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra', severity: 'error' });
+            playSound('error');
         } finally { setLoading(false); }
     };
 
@@ -260,9 +281,11 @@ export default function Dashboard() {
             setLoading(true);
             await axios.post(`${API_BASE_URL}/family/add-member`, { email }, { headers: { Authorization: `Bearer ${token}` } });
             setSnackbarObj({ open: true, message: 'Đã gửi lời mời tham gia nhóm!', severity: 'success' });
+            playSound('success');
             await fetchFamily();
         } catch (err) {
             setSnackbarObj({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra', severity: 'error' });
+            playSound('error');
         } finally { setLoading(false); }
     };
 
@@ -272,9 +295,11 @@ export default function Dashboard() {
             await axios.post(`${API_BASE_URL}/family/accept-invite`, {}, { headers: { Authorization: `Bearer ${token}` } });
             setSnackbarObj({ open: true, message: 'Tham gia gia đình thành công!', severity: 'success' });
             setInviteData(null);
+            playSound('success');
             fetchFamily();
         } catch (err) {
             setSnackbarObj({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra', severity: 'error' });
+            playSound('error');
         } finally { setLoading(false); }
     };
 
@@ -284,8 +309,10 @@ export default function Dashboard() {
             await axios.post(`${API_BASE_URL}/family/reject-invite`, {}, { headers: { Authorization: `Bearer ${token}` } });
             setSnackbarObj({ open: true, message: 'Đã từ chối lời mời', severity: 'info' });
             setInviteData(null);
+            playSound('success');
         } catch (err) {
             setSnackbarObj({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra', severity: 'error' });
+            playSound('error');
         } finally { setLoading(false); }
     };
 
@@ -323,7 +350,7 @@ export default function Dashboard() {
 
             <Box sx={{ flex: 1, overflowY: 'auto', px: 3, pb: 12, display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ mt: 'auto', width: '100%' }}>
-                    <UnassignedItems transactions={transactions} setItemToCategorize={setItemToCategorize} handleDeleteTransaction={handleDeleteTransaction} getTransactionKeyword={getTransactionKeyword} />
+                    <UnassignedItems transactions={transactions} setItemToCategorize={setItemToCategorize} handleDeleteTransaction={handleDeleteTransaction} getTransactionKeyword={getTransactionKeyword} handleAssignCategory={handleAssignCategory} />
                     <CategoryGrid dbCategories={dbCategories} transactions={transactions} recentAddedIds={recentAddedIds} categoryConfig={categoryConfig} categoryTotals={categoryTotals} setSelectedCategoryName={setSelectedCategoryName} getTransactionKeyword={getTransactionKeyword} formatCurrencyShort={formatCurrencyShort} />
                 </Box>
                 <div ref={messagesEndRef} />
