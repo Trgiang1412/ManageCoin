@@ -5,8 +5,15 @@ import SavingsIcon from '@mui/icons-material/Savings';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function LeftMenuDrawer({ drawerOpen, setDrawerOpen, user, setSettingsAnchorEl, handleLogout }) {
+    const navigate = useNavigate();
+    const location = useLocation();
+    
+    const isStats = location.pathname === '/statistics';
+    const isHome = location.pathname === '/';
+
     return (
         <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
             <Box sx={{ width: 280, height: '100%', display: 'flex', flexDirection: 'column' }} role="presentation" onClick={() => setDrawerOpen(false)} onKeyDown={() => setDrawerOpen(false)}>
@@ -18,9 +25,9 @@ export default function LeftMenuDrawer({ drawerOpen, setDrawerOpen, user, setSet
                 <Divider />
                 <MuiList sx={{ p: 2, flex: 1 }}>
                     <ListItem disablePadding sx={{ mb: 1 }}>
-                        <ListItemButton sx={{ borderRadius: 2, bgcolor: '#f0fdf4', color: '#166534' }}>
+                        <ListItemButton onClick={() => navigate('/')} sx={{ borderRadius: 2, bgcolor: isHome ? '#f0fdf4' : 'transparent', color: isHome ? '#166534' : 'inherit' }}>
                             <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}><AccountBalanceWalletIcon /></ListItemIcon>
-                            <ListItemText primary={<Typography fontWeight="bold">Chi tiêu hàng ngày</Typography>} />
+                            <ListItemText primary={<Typography fontWeight={isHome ? "bold" : "500"}>Chi tiêu hàng ngày</Typography>} />
                         </ListItemButton>
                     </ListItem>
                     <ListItem disablePadding sx={{ mb: 1 }}>
@@ -36,9 +43,9 @@ export default function LeftMenuDrawer({ drawerOpen, setDrawerOpen, user, setSet
                         </ListItemButton>
                     </ListItem>
                     <ListItem disablePadding sx={{ mb: 1 }}>
-                        <ListItemButton sx={{ borderRadius: 2 }}>
-                            <ListItemIcon sx={{ minWidth: 40 }}><BarChartIcon sx={{ color: '#8b5cf6' }} /></ListItemIcon>
-                            <ListItemText primary={<Typography fontWeight="500">Thống kê</Typography>} />
+                        <ListItemButton onClick={() => navigate('/statistics')} sx={{ borderRadius: 2, bgcolor: isStats ? '#f3e8ff' : 'transparent', color: isStats ? '#6b21a8' : 'inherit' }}>
+                            <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}><BarChartIcon sx={{ color: isStats ? 'inherit' : '#8b5cf6' }} /></ListItemIcon>
+                            <ListItemText primary={<Typography fontWeight={isStats ? "bold" : "500"}>Thống kê</Typography>} />
                         </ListItemButton>
                     </ListItem>
                     <ListItem disablePadding>

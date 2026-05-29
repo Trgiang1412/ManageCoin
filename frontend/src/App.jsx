@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard/index';
+import Statistics from './pages/Statistics/index';
 
 function App() {
   const isAuthenticated = !!localStorage.getItem('token');
@@ -10,6 +11,7 @@ function App() {
       <Routes>
         <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
         <Route path="/" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="/statistics" element={isAuthenticated ? <Statistics /> : <Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
   );

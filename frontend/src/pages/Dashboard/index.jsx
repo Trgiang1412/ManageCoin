@@ -9,11 +9,11 @@ import { API_BASE_URL } from '../../config';
 
 // Import utility and basic config
 export const categoryConfig = {
-    'Hạn mức tháng': { icon: '💰', color: '#FFF3CD', name: 'HẠN MỨC THÁNG' },
     'Ăn uống': { icon: '🍗', color: '#F8D7DA', name: 'ĂN UỐNG' },
     'Di chuyển': { icon: '🚗', color: '#D1ECF1', name: 'DI CHUYỂN' },
     'Mua sắm': { icon: '🛍️', color: '#E2D9F3', name: 'MUA SẮM' },
-    'Tiết kiệm': { icon: '🐷', color: '#D4EDDA', name: 'TIẾT KIỆM' },
+    'Y tế': { icon: '🏥', color: '#D4EDDA', name: 'Y TẾ' },
+    'Tiền nhà': { icon: '🏠', color: '#FFF3CD', name: 'TIỀN NHÀ' },
     'Khác': { icon: '📦', color: '#E2E3E5', name: 'KHÁC' }
 };
 
@@ -48,6 +48,7 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [balance, setBalance] = useState(0);
+    const [monthlyLimit, setMonthlyLimit] = useState(0);
     const [transactions, setTransactions] = useState([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(true);
@@ -136,12 +137,20 @@ export default function Dashboard() {
 
     const calculateBalance = (lists) => {
         let total = 0;
+        let limit = 0;
         lists.forEach(t => {
             const isIncome = t.id_category?.type_category === 'income';
-            if (isIncome) total += t.price;
-            else total -= t.price;
+            if (isIncome) {
+                total += t.price;
+                if (t.category_name === 'Hạn mức tháng') {
+                    limit += t.price;
+                }
+            } else {
+                total -= t.price;
+            }
         });
         setBalance(total);
+        setMonthlyLimit(limit);
     };
 
     const fetchData = async () => {
@@ -316,6 +325,15 @@ export default function Dashboard() {
         } finally { setLoading(false); }
     };
 
+    const displayOrder = ['Ăn uống', 'Di chuyển', 'Mua sắm', 'Tiền nhà', 'Y tế', 'Khác'];
+    const displayCategories = dbCategories
+        .filter(cat => cat.category_name !== 'Hạn mức tháng' && cat.category_name !== 'Tiết kiệm')
+        .sort((a, b) => {
+            const indexA = displayOrder.indexOf(a.category_name);
+            const indexB = displayOrder.indexOf(b.category_name);
+            return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+        });
+
     return (
         <Box sx={{ maxWidth: 480, margin: '0 auto', height: '100dvh', display: 'flex', flexDirection: 'column', bgcolor: '#FAFAFA', position: 'relative', overflow: 'hidden' }}>
             <SuccessPopup showPopup={showPopup} lastTransaction={lastTransaction} categoryConfig={categoryConfig} getTransactionKeyword={getTransactionKeyword} categoryTotals={categoryTotals} totalExpense={totalExpense} />
@@ -345,13 +363,13 @@ export default function Dashboard() {
                     </MenuItem>
                 </Menu>
 
-                <BalanceCard balance={balance} setOpenFinishMonthDialog={setOpenFinishMonthDialog} />
+                <BalanceCard balance={balance} monthlyLimit={monthlyLimit} setOpenFinishMonthDialog={setOpenFinishMonthDialog} />
             </Box>
 
             <Box sx={{ flex: 1, overflowY: 'auto', px: 3, pb: 12, display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ mt: 'auto', width: '100%' }}>
                     <UnassignedItems transactions={transactions} setItemToCategorize={setItemToCategorize} handleDeleteTransaction={handleDeleteTransaction} getTransactionKeyword={getTransactionKeyword} handleAssignCategory={handleAssignCategory} />
-                    <CategoryGrid dbCategories={dbCategories} transactions={transactions} recentAddedIds={recentAddedIds} categoryConfig={categoryConfig} categoryTotals={categoryTotals} setSelectedCategoryName={setSelectedCategoryName} getTransactionKeyword={getTransactionKeyword} formatCurrencyShort={formatCurrencyShort} />
+                    <CategoryGrid dbCategories={displayCategories} transactions={transactions} recentAddedIds={recentAddedIds} categoryConfig={categoryConfig} categoryTotals={categoryTotals} setSelectedCategoryName={setSelectedCategoryName} getTransactionKeyword={getTransactionKeyword} formatCurrencyShort={formatCurrencyShort} />
                 </Box>
                 <div ref={messagesEndRef} />
             </Box>

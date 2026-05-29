@@ -117,6 +117,8 @@ exports.createList = async (req, res) => {
             if (itemStrLower.match(/(bún|phở|cơm|bánh|nước|cafe|trà|uống|ăn|food|mì|nhậu|lẩu|gà|bò|thịt|cá|rau|sữa|chợ|kem|trà sữa|bim bim|sữa chua|bánh mì|bánh tráng|cà phê)/)) targetCategoryName = 'Ăn uống';
             else if (itemStrLower.match(/(xe|xăng|grab|taxi|bus|vé|di chuyển|car|motor)/)) targetCategoryName = 'Di chuyển';
             else if (itemStrLower.match(/(áo|quần|giày|túi|đồ|siêu thị|mua|shopping|shopee|lazada|son|quần áo|mỹ phẩm)/)) targetCategoryName = 'Mua sắm';
+            else if (itemStrLower.match(/(thuốc|khám|bệnh|y tế|bác sĩ|viện|ho|sốt|đau|nha khoa)/)) targetCategoryName = 'Y tế';
+            else if (itemStrLower.match(/(nhà|trọ|điện|nước|internet|wifi|rác|phòng|thuê)/)) targetCategoryName = 'Tiền nhà';
             else if (itemStrLower.match(/(tiết kiệm|heo|gửi|save)/)) targetCategoryName = 'Tiết kiệm';
             else if (itemStrLower.match(/(hạn mức|lương|thưởng|bán|lãi|thu|thêm|income|thu nhập|cat)/)) targetCategoryName = 'Hạn mức tháng';
         }

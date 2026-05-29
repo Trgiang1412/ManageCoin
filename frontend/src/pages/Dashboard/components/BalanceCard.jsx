@@ -1,7 +1,7 @@
 import { Paper, IconButton, Typography } from '@mui/material';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 
-export default function BalanceCard({ balance, setOpenFinishMonthDialog }) {
+export default function BalanceCard({ balance, monthlyLimit, setOpenFinishMonthDialog }) {
     return (
         <Paper elevation={0} sx={{ position: 'relative', py: 2, px: 3, borderRadius: 4, bgcolor: '#FFF', textAlign: 'center', boxShadow: '0 8px 24px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <IconButton
@@ -13,8 +13,11 @@ export default function BalanceCard({ balance, setOpenFinishMonthDialog }) {
                 <RestartAltIcon sx={{ fontSize: 18 }} />
             </IconButton>
             <Typography variant="caption" color="text.secondary" fontWeight="bold" sx={{ letterSpacing: 1, mb: 0 }}>SỐ DƯ CÒN LẠI</Typography>
-            <Typography variant="h5" fontWeight="900" sx={{ color: '#10b981', mt: 0.5, letterSpacing: -0.5 }}>
+            <Typography variant="h5" fontWeight="900" sx={{ color: balance < 0 ? 'error.main' : '#10b981', mt: 0.5, letterSpacing: -0.5 }}>
                 {balance.toLocaleString('vi-VN')}đ
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Hạn mức tháng: {monthlyLimit ? monthlyLimit.toLocaleString('vi-VN') : 0}đ
             </Typography>
         </Paper>
     );

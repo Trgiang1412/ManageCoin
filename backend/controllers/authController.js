@@ -22,6 +22,8 @@ exports.register = async (req, res) => {
             { user_id: user.id, category_name: 'Ăn uống', type_category: 'expense' },
             { user_id: user.id, category_name: 'Di chuyển', type_category: 'expense' },
             { user_id: user.id, category_name: 'Mua sắm', type_category: 'expense' },
+            { user_id: user.id, category_name: 'Y tế', type_category: 'expense' },
+            { user_id: user.id, category_name: 'Tiền nhà', type_category: 'expense' },
             { user_id: user.id, category_name: 'Tiết kiệm', type_category: 'expense' },
             { user_id: user.id, category_name: 'Khác', type_category: 'expense' }
         ];
