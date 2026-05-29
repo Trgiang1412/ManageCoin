@@ -147,6 +147,9 @@ export default function Dashboard() {
                 }
             } else {
                 total -= t.price;
+                if (t.category_name === 'Tiết kiệm') {
+                    limit += t.price;
+                }
             }
         });
         setBalance(total);
