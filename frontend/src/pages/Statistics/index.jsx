@@ -15,8 +15,8 @@ dayjs.extend(isBetween);
 export default function Statistics() {
     const navigate = useNavigate();
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [transactions, setTransactions] = useState([]);
     const [dbCategories, setDbCategories] = useState([]);
+    const [statistics, setStatistics] = useState({ totalExpense: 0, details: [] });
     const [loading, setLoading] = useState(true);
     
     // Filter state
@@ -30,17 +30,23 @@ export default function Statistics() {
     useEffect(() => {
         fetchData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [startDate, endDate]);
 
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [catRes, transRes] = await Promise.all([
+            const [catRes, statRes] = await Promise.all([
                 axios.get(`${API_BASE_URL}/categories`, { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get(`${API_BASE_URL}/lists`, { headers: { Authorization: `Bearer ${token}` } })
+                axios.get(`${API_BASE_URL}/lists/statistics`, { 
+                    headers: { Authorization: `Bearer ${token}` },
+                    params: {
+                        startDate: dayjs(startDate).startOf('day').toISOString(),
+                        endDate: dayjs(endDate).endOf('day').toISOString()
+                    }
+                })
             ]);
             setDbCategories(catRes.data);
-            setTransactions(transRes.data);
+            setStatistics(statRes.data);
         } catch (err) {
             console.error(err);
             if (err.response?.status === 401) {
@@ -71,32 +77,23 @@ export default function Statistics() {
         navigate('/login');
     };
 
-    // Calculate statistics
-    const filteredTransactions = transactions.filter(t => {
-        const tDate = dayjs(t.date || t.createdAt); // assuming list model has date or createdAt
-        return tDate.isBetween(dayjs(startDate).startOf('day'), dayjs(endDate).endOf('day'), null, '[]');
-    });
-
+    // Prepare chart data
     const categoryTotals = {};
-    let totalExpense = 0;
     
-    // Initialize totals for all expense categories
+    // Initialize totals for all expense categories to show 0
     dbCategories.filter(c => c.type_category !== 'income' && c.category_name !== 'Hạn mức tháng' && c.category_name !== 'Tiết kiệm').forEach(c => {
         categoryTotals[c.category_name] = 0;
     });
 
-    filteredTransactions.forEach(t => {
-        const catName = t.category_name || 'Khác';
-        if (t.id_category?.type_category !== 'income' && catName !== 'Hạn mức tháng' && catName !== 'Tiết kiệm') {
-            if (categoryTotals[catName] === undefined) {
-                categoryTotals[catName] = 0;
-            }
-            categoryTotals[catName] += t.price;
-            totalExpense += t.price;
+    // Merge API details into categoryTotals
+    statistics.details.forEach(d => {
+        if (d.category_name !== 'Hạn mức tháng' && d.category_name !== 'Tiết kiệm') {
+            categoryTotals[d.category_name] = d.amount;
         }
     });
 
-    // Prepare chart data
+    const totalExpense = statistics.totalExpense;
+
     const chartData = Object.keys(categoryTotals).map(catName => {
         const config = categoryConfig[catName] || { color: '#8884d8', icon: '📦' };
         return {

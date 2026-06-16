@@ -18,6 +18,7 @@ router.get('/categories', authMiddleware, categoryController.getCategories);
 
 // --- LIST ROUTES ---
 router.get('/lists', authMiddleware, listController.getLists);
+router.get('/lists/statistics', authMiddleware, listController.getStatistics);
 router.post('/lists/end-month', authMiddleware, listController.endMonth);
 router.post('/lists', authMiddleware, listController.createList);
 router.put('/lists/:id', authMiddleware, listController.updateList);

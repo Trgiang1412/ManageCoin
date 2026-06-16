@@ -26,6 +26,66 @@ exports.getLists = async (req, res) => {
     }
 };
 
+exports.getStatistics = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        const user = await User.findById(req.user.id);
+        
+        const query = {};
+        if (user.family_id) {
+            query.family_id = user.family_id;
+        } else {
+            query.user_id = req.user.id;
+        }
+
+        if (startDate && endDate) {
+            // Frontend should pass ISO strings, e.g. 2026-06-16T00:00:00.000Z to 2026-06-25T23:59:59.999Z
+            query.date = {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            };
+        } else if (startDate) {
+            query.date = { $gte: new Date(startDate) };
+        } else if (endDate) {
+            query.date = { $lte: new Date(endDate) };
+        }
+
+        const lists = await List.find(query).populate('id_category');
+
+        let totalExpense = 0;
+        const detailsMap = {};
+
+        lists.forEach(list => {
+            const category = list.id_category;
+            // If category is not found, fallback to 'expense' unless the name implies income
+            const type = category ? category.type_category : (list.category_name === 'Hạn mức tháng' ? 'income' : 'expense');
+            const catName = category ? category.category_name : (list.category_name || 'Khác');
+
+            if (type === 'expense') {
+                totalExpense += list.price;
+                if (!detailsMap[catName]) {
+                    detailsMap[catName] = 0;
+                }
+                detailsMap[catName] += list.price;
+            }
+        });
+
+        const details = Object.keys(detailsMap).map(name => ({
+            category_name: name,
+            amount: detailsMap[name]
+        }));
+
+        res.json({
+            totalExpense,
+            details
+        });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+};
+
 exports.endMonth = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
@@ -114,13 +174,13 @@ exports.createList = async (req, res) => {
             targetCategoryName = overrideCategory;
         } else {
             // Auto categorization logic based ONLY on what we want to map to existing ones
-            if (itemStrLower.match(/(bún|phở|cơm|bánh|nước|cafe|trà|uống|ăn|food|mì|nhậu|lẩu|gà|bò|thịt|cá|rau|sữa|chợ|kem|trà sữa|bim bim|sữa chua|bánh mì|bánh tráng|cà phê)/)) targetCategoryName = 'Ăn uống';
-            else if (itemStrLower.match(/(xe|xăng|grab|taxi|bus|vé|di chuyển|car|motor)/)) targetCategoryName = 'Di chuyển';
-            else if (itemStrLower.match(/(áo|quần|giày|túi|đồ|siêu thị|mua|shopping|shopee|lazada|son|quần áo|mỹ phẩm)/)) targetCategoryName = 'Mua sắm';
-            else if (itemStrLower.match(/(thuốc|khám|bệnh|y tế|bác sĩ|viện|ho|sốt|đau|nha khoa)/)) targetCategoryName = 'Y tế';
-            else if (itemStrLower.match(/(nhà|trọ|điện|nước|internet|wifi|rác|phòng|thuê)/)) targetCategoryName = 'Tiền nhà';
-            else if (itemStrLower.match(/(tiết kiệm|heo|gửi|save)/)) targetCategoryName = 'Tiết kiệm';
-            else if (itemStrLower.match(/(hạn mức|lương|thưởng|bán|lãi|thu|thêm|income|thu nhập|cat)/)) targetCategoryName = 'Hạn mức tháng';
+            if (itemStrLower.match(/(^|\s)(bún|phở|cơm|bánh|nước|cafe|trà|uống|ăn|food|mì|nhậu|lẩu|gà|bò|thịt|cá|rau|sữa|chợ|kem|trà sữa|bim bim|sữa chua|bánh mì|bánh tráng|cà phê)($|\s)/)) targetCategoryName = 'Ăn uống';
+            else if (itemStrLower.match(/(^|\s)(xe|xăng|grab|taxi|bus|vé|di chuyển|car|motor)($|\s)/)) targetCategoryName = 'Di chuyển';
+            else if (itemStrLower.match(/(^|\s)(áo|quần|giày|túi|đồ|siêu thị|mua|shopping|shopee|lazada|son|quần áo|mỹ phẩm)($|\s)/)) targetCategoryName = 'Mua sắm';
+            else if (itemStrLower.match(/(^|\s)(thuốc|khám|bệnh|y tế|bác sĩ|viện|ho|sốt|đau|nha khoa)($|\s)/)) targetCategoryName = 'Y tế';
+            else if (itemStrLower.match(/(^|\s)(nhà|trọ|điện|nước|internet|wifi|rác|phòng|thuê)($|\s)/)) targetCategoryName = 'Tiền nhà';
+            else if (itemStrLower.match(/(^|\s)(tiết kiệm|heo|gửi|save)($|\s)/)) targetCategoryName = 'Tiết kiệm';
+            else if (itemStrLower.match(/(^|\s)(hạn mức|lương|thưởng|bán|lãi|thu|thêm|income|thu nhập|cat)($|\s)/)) targetCategoryName = 'Hạn mức tháng';
         }
 
         // 1. Try to find the exact matched category from our auto-categorization
