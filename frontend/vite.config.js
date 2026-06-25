@@ -7,7 +7,15 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'logo.svg'],
+      includeAssets: [
+        'favicon.ico',
+        'apple-touch-icon.png',
+        'logo.svg',
+        'icon-192x192.png',
+        'icon-512x512.png',
+        'icon-maskable-192x192.png',
+        'icon-maskable-512x512.png',
+      ],
       manifest: {
         name: 'Managecoin',
         short_name: 'Managecoin',
@@ -20,18 +28,26 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           {
-            src: '/logo.svg', // Temporary icon URL
+            src: '/icon-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
-            src: '/logo.svg', // Temporary icon URL
+            src: '/icon-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
-            src: '/logo.svg',
+            src: '/icon-maskable-192x192.png',
             sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
+          },
+          {
+            src: '/icon-maskable-512x512.png',
+            sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
           }
