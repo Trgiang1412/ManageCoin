@@ -35,27 +35,11 @@ export default function CategoryDetailsDialog({ selectedCategoryName, setSelecte
                                     transition: 'box-shadow 0.15s',
                                     '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }
                                 }}>
-                                    <Box sx={{
-                                        width: 44, height: 44, borderRadius: 2.5,
-                                        bgcolor: config.color + '22', display: 'flex',
-                                        alignItems: 'center', justifyContent: 'center',
-                                        fontSize: 22, flexShrink: 0,
-                                        border: `1.5px solid ${config.color}22`
-                                    }}>
-                                        {config.icon}
-                                    </Box>
-
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography fontWeight={700} fontSize={14} noWrap>{getTransactionKeyword(t.content) || 'Khoản chi'}</Typography>
+                                        <Typography fontWeight={700} fontSize={14} sx={{ wordBreak: 'break-word' }}>{getTransactionKeyword(t.content) || 'Khoản chi'}</Typography>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.3 }}>
-                                            <Typography variant="caption" sx={{
-                                                color: '#555', fontWeight: 700, bgcolor: config.color + '44',
-                                                px: 1, py: 0.2, borderRadius: 99, fontSize: 10
-                                            }}>
-                                                {config.name}
-                                            </Typography>
                                             {t.user_id?.name && (
-                                                <Typography variant="caption" color="text.secondary">
+                                                <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 100 }}>
                                                     👤 {t.user_id.name}
                                                 </Typography>
                                             )}

@@ -174,7 +174,9 @@ exports.inviteMember = async (req, res) => {
 // GET /travel/funds/:id/expenses
 exports.getExpenses = async (req, res) => {
     try {
-        const expenses = await TravelExpense.find({ fund_id: req.params.id }).sort({ date: -1 });
+        const expenses = await TravelExpense.find({ fund_id: req.params.id })
+            .populate('user_id', 'name email')
+            .sort({ date: -1 });
         res.json(expenses);
     } catch (err) {
         res.status(500).json({ message: err.message });
