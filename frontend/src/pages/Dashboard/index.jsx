@@ -74,9 +74,11 @@ export default function Dashboard() {
 
     // Family states
     const [familyData, setFamilyData] = useState(null);
+    const [myFamilies, setMyFamilies] = useState([]);
+    const [activeFamilyId, setActiveFamilyId] = useState(null);
     const [openCreateFamily, setOpenCreateFamily] = useState(false);
     const [openFamilyMembers, setOpenFamilyMembers] = useState(false);
-    const [inviteData, setInviteData] = useState(null);
+    const [inviteData, setInviteData] = useState([]);
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const token = localStorage.getItem('token');
@@ -118,8 +120,11 @@ export default function Dashboard() {
     const checkInvite = async () => {
         try {
             const res = await axios.get(`${API_BASE_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
-            if (res.data.sendfamily && res.data.sendfamily._id) {
+            // sendfamily là mảng
+            if (res.data.sendfamily && res.data.sendfamily.length > 0) {
                 setInviteData(res.data.sendfamily);
+            } else {
+                setInviteData([]);
             }
         } catch (err) {
             console.error(err);
@@ -128,10 +133,21 @@ export default function Dashboard() {
 
     const fetchFamily = async () => {
         try {
-            const res = await axios.get(`${API_BASE_URL}/family`, { headers: { Authorization: `Bearer ${token}` } });
-            setFamilyData(res.data);
+            // Lấy tất cả families của user
+            const allRes = await axios.get(`${API_BASE_URL}/family/all`, { headers: { Authorization: `Bearer ${token}` } });
+            setMyFamilies(allRes.data.families || []);
+            setActiveFamilyId(allRes.data.active_family_id);
+
+            // Lấy family đang active
+            if (allRes.data.active_family_id) {
+                const res = await axios.get(`${API_BASE_URL}/family`, { headers: { Authorization: `Bearer ${token}` } });
+                setFamilyData(res.data);
+            } else {
+                setFamilyData(null);
+            }
         } catch (err) {
             setFamilyData(null);
+            setMyFamilies([]);
         }
     };
 
@@ -282,6 +298,7 @@ export default function Dashboard() {
             setOpenCreateFamily(false);
             playSound('success');
             await fetchFamily();
+            await fetchData(); // reload data theo family mới
         } catch (err) {
             setSnackbarObj({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra', severity: 'error' });
             playSound('error');
@@ -291,7 +308,7 @@ export default function Dashboard() {
     const handleInviteMember = async (email) => {
         try {
             setLoading(true);
-            await axios.post(`${API_BASE_URL}/family/add-member`, { email }, { headers: { Authorization: `Bearer ${token}` } });
+            await axios.post(`${API_BASE_URL}/family/add-member`, { email, family_id: activeFamilyId }, { headers: { Authorization: `Bearer ${token}` } });
             setSnackbarObj({ open: true, message: 'Đã gửi lời mời tham gia nhóm!', severity: 'success' });
             playSound('success');
             await fetchFamily();
@@ -301,27 +318,86 @@ export default function Dashboard() {
         } finally { setLoading(false); }
     };
 
-    const handleAcceptInvite = async () => {
+    const handleAcceptInvite = async (familyId) => {
         try {
             setLoading(true);
-            await axios.post(`${API_BASE_URL}/family/accept-invite`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            await axios.post(`${API_BASE_URL}/family/accept-invite`, { family_id: familyId }, { headers: { Authorization: `Bearer ${token}` } });
             setSnackbarObj({ open: true, message: 'Tham gia gia đình thành công!', severity: 'success' });
-            setInviteData(null);
+            // Xóa lời mời đó khỏi danh sách
+            setInviteData(prev => prev.filter(inv => inv._id !== familyId));
             playSound('success');
-            fetchFamily();
+            await fetchFamily();
+            await fetchData();
         } catch (err) {
             setSnackbarObj({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra', severity: 'error' });
             playSound('error');
         } finally { setLoading(false); }
     };
 
-    const handleRejectInvite = async () => {
+    const handleRejectInvite = async (familyId) => {
         try {
             setLoading(true);
-            await axios.post(`${API_BASE_URL}/family/reject-invite`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            await axios.post(`${API_BASE_URL}/family/reject-invite`, { family_id: familyId }, { headers: { Authorization: `Bearer ${token}` } });
             setSnackbarObj({ open: true, message: 'Đã từ chối lời mời', severity: 'info' });
-            setInviteData(null);
+            setInviteData(prev => prev.filter(inv => inv._id !== familyId));
             playSound('success');
+        } catch (err) {
+            setSnackbarObj({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra', severity: 'error' });
+            playSound('error');
+        } finally { setLoading(false); }
+    };
+
+    const handleSwitchFamily = async (familyId) => {
+        try {
+            setLoading(true);
+            await axios.post(`${API_BASE_URL}/family/switch`, { family_id: familyId }, { headers: { Authorization: `Bearer ${token}` } });
+            setSnackbarObj({ open: true, message: 'Đã chuyển nhóm gia đình!', severity: 'success' });
+            playSound('success');
+            await fetchFamily();
+            await fetchData();
+        } catch (err) {
+            setSnackbarObj({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra', severity: 'error' });
+            playSound('error');
+        } finally { setLoading(false); }
+    };
+
+    const handleLeaveFamily = async (familyId) => {
+        try {
+            setLoading(true);
+            await axios.post(`${API_BASE_URL}/family/${familyId}/leave`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            setSnackbarObj({ open: true, message: 'Đã rời nhóm gia đình!', severity: 'success' });
+            setOpenFamilyMembers(false);
+            playSound('success');
+            await fetchFamily();
+            await fetchData();
+        } catch (err) {
+            setSnackbarObj({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra', severity: 'error' });
+            playSound('error');
+        } finally { setLoading(false); }
+    };
+
+    const handleRemoveMember = async (familyId, memberId) => {
+        try {
+            setLoading(true);
+            await axios.delete(`${API_BASE_URL}/family/${familyId}/member/${memberId}`, { headers: { Authorization: `Bearer ${token}` } });
+            setSnackbarObj({ open: true, message: 'Đã xóa thành viên khỏi nhóm!', severity: 'success' });
+            playSound('success');
+            await fetchFamily();
+        } catch (err) {
+            setSnackbarObj({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra', severity: 'error' });
+            playSound('error');
+        } finally { setLoading(false); }
+    };
+
+    const handleDissolveFamily = async (familyId) => {
+        try {
+            setLoading(true);
+            await axios.delete(`${API_BASE_URL}/family/${familyId}`, { headers: { Authorization: `Bearer ${token}` } });
+            setSnackbarObj({ open: true, message: 'Đã giải tán nhóm gia đình!', severity: 'success' });
+            setOpenFamilyMembers(false);
+            playSound('success');
+            await fetchFamily();
+            await fetchData();
         } catch (err) {
             setSnackbarObj({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra', severity: 'error' });
             playSound('error');
@@ -345,8 +421,11 @@ export default function Dashboard() {
                     user={user} 
                     setDrawerOpen={setDrawerOpen} 
                     familyData={familyData} 
+                    myFamilies={myFamilies}
+                    activeFamilyId={activeFamilyId}
                     onOpenCreate={() => setOpenCreateFamily(true)} 
-                    onOpenMembers={() => setOpenFamilyMembers(true)} 
+                    onOpenMembers={() => setOpenFamilyMembers(true)}
+                    onSwitchFamily={handleSwitchFamily}
                 />
                 
                 <Menu
@@ -385,7 +464,17 @@ export default function Dashboard() {
             <AssignCategoryDialog itemToCategorize={itemToCategorize} setItemToCategorize={setItemToCategorize} getTransactionKeyword={getTransactionKeyword} dbCategories={dbCategories} categoryConfig={categoryConfig} handleAssignCategory={handleAssignCategory} />
             
             <CreateFamilyDialog open={openCreateFamily} onClose={() => setOpenCreateFamily(false)} onCreate={handleCreateFamily} loading={loading} />
-            <FamilyMembersDialog open={openFamilyMembers} onClose={() => setOpenFamilyMembers(false)} familyData={familyData} onInvite={handleInviteMember} loading={loading} />
+            <FamilyMembersDialog
+                open={openFamilyMembers}
+                onClose={() => setOpenFamilyMembers(false)}
+                familyData={familyData}
+                onInvite={handleInviteMember}
+                loading={loading}
+                currentUserId={user.id}
+                onLeave={handleLeaveFamily}
+                onRemoveMember={handleRemoveMember}
+                onDissolve={handleDissolveFamily}
+            />
             <InviteDialog inviteData={inviteData} onAccept={handleAcceptInvite} onReject={handleRejectInvite} loading={loading} />
 
             <Snackbar open={snackbarObj.open} autoHideDuration={4000} onClose={() => setSnackbarObj({ ...snackbarObj, open: false })} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>

@@ -62,7 +62,10 @@ exports.login = async (req, res) => {
 
 exports.getMe = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select('-password').populate('sendfamily', 'name');
+        const user = await User.findById(req.user.id)
+            .select('-password')
+            .populate('sendfamily', 'name')
+            .populate('active_family_id', 'name');
         res.json(user);
     } catch (err) {
         console.error(err.message);

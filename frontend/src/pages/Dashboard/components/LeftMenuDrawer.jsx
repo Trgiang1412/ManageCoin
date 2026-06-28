@@ -13,6 +13,7 @@ export default function LeftMenuDrawer({ drawerOpen, setDrawerOpen, user, setSet
     
     const isStats = location.pathname === '/statistics';
     const isHome = location.pathname === '/';
+    const isTravel = location.pathname.startsWith('/travel');
 
     return (
         <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
@@ -31,9 +32,9 @@ export default function LeftMenuDrawer({ drawerOpen, setDrawerOpen, user, setSet
                         </ListItemButton>
                     </ListItem>
                     <ListItem disablePadding sx={{ mb: 1 }}>
-                        <ListItemButton sx={{ borderRadius: 2 }}>
-                            <ListItemIcon sx={{ minWidth: 40 }}><FlightTakeoffIcon sx={{ color: '#0284c7' }} /></ListItemIcon>
-                            <ListItemText primary={<Typography fontWeight="500">Du lịch</Typography>} />
+                        <ListItemButton onClick={() => navigate('/travel')} sx={{ borderRadius: 2, bgcolor: isTravel ? '#eff6ff' : 'transparent', color: isTravel ? '#1d4ed8' : 'inherit' }}>
+                            <ListItemIcon sx={{ minWidth: 40, color: isTravel ? '#1d4ed8' : '#0284c7' }}><FlightTakeoffIcon /></ListItemIcon>
+                            <ListItemText primary={<Typography fontWeight={isTravel ? "bold" : "500"}>Du lịch</Typography>} />
                         </ListItemButton>
                     </ListItem>
                     <ListItem disablePadding sx={{ mb: 1 }}>
@@ -55,6 +56,7 @@ export default function LeftMenuDrawer({ drawerOpen, setDrawerOpen, user, setSet
                         </ListItemButton>
                     </ListItem>
                 </MuiList>
+
                 <Box sx={{ p: 2, pb: 4 }}>
                     <Button fullWidth variant="outlined" color="error" startIcon={<LogoutIcon />} onClick={handleLogout} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 'bold' }}>
                         Đăng xuất

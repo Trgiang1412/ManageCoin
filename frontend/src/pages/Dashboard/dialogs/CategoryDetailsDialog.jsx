@@ -1,7 +1,7 @@
-import { Dialog, DialogTitle, Box, Typography, IconButton, DialogContent, Paper, InputBase, CircularProgress, List as MuiList, ListItem, ListItemText, ListItemSecondaryAction } from '@mui/material';
+import { Dialog, DialogTitle, Box, Typography, IconButton, DialogContent, Paper, InputBase, CircularProgress } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PetsIcon from '@mui/icons-material/Pets';
-import DeleteIcon from '@mui/icons-material/Delete';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 export default function CategoryDetailsDialog({ selectedCategoryName, setSelectedCategoryName, categoryConfig, transactions, categoryInput, setCategoryInput, processTransaction, loading, getTransactionKeyword, handleDeleteTransaction }) {
     if (!selectedCategoryName) return null;
@@ -22,30 +22,61 @@ export default function CategoryDetailsDialog({ selectedCategoryName, setSelecte
             </DialogTitle>
             <DialogContent sx={{ p: 0, bgcolor: '#FAFAFA', display: 'flex', flexDirection: 'column', height: '60vh' }}>
                 <Box sx={{ flex: 1, overflowY: 'auto' }}>
-                    <MuiList sx={{ pt: 0, pb: 2 }}>
+                    <Box sx={{ pt: 2, pb: 2, px: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
                         {catTransactions.length === 0 ? (
                             <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 3 }}>Chưa có khoản nào.</Typography>
                         ) : (
                             [...catTransactions].reverse().map(t => (
-                                <ListItem key={t._id} sx={{ borderBottom: '1px solid #f0f0f0', bgcolor: '#fff' }}>
-                                    <ListItemText
-                                        primary={getTransactionKeyword(t.content) || 'Khoản chi'}
-                                        primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
-                                        secondary={`${new Date(t.date).toLocaleDateString('vi-VN')}${t.user_id?.name ? ` • ${t.user_id.name}` : ''}`}
-                                        secondaryTypographyProps={{ variant: 'caption' }}
-                                    />
-                                    <Typography variant="body2" fontWeight="bold" sx={{ mr: 2, color: t.id_category?.type_category === 'income' ? '#4caf50' : '#e57373' }}>
-                                        {t.id_category?.type_category === 'income' ? '+' : '-'}{(t.price || 0).toLocaleString('vi-VN')}đ
-                                    </Typography>
-                                    <ListItemSecondaryAction>
-                                        <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteTransaction(t._id)} size="small" color="error">
-                                            <DeleteIcon fontSize="small" />
+                                <Box key={t._id} sx={{
+                                    display: 'flex', alignItems: 'center', gap: 1.5,
+                                    py: 1.2, px: 1.5, borderRadius: 3,
+                                    bgcolor: 'white',
+                                    boxShadow: '0 1px 8px rgba(0,0,0,0.05)',
+                                    transition: 'box-shadow 0.15s',
+                                    '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }
+                                }}>
+                                    <Box sx={{
+                                        width: 44, height: 44, borderRadius: 2.5,
+                                        bgcolor: config.color + '22', display: 'flex',
+                                        alignItems: 'center', justifyContent: 'center',
+                                        fontSize: 22, flexShrink: 0,
+                                        border: `1.5px solid ${config.color}22`
+                                    }}>
+                                        {config.icon}
+                                    </Box>
+
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography fontWeight={700} fontSize={14} noWrap>{getTransactionKeyword(t.content) || 'Khoản chi'}</Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.3 }}>
+                                            <Typography variant="caption" sx={{
+                                                color: '#555', fontWeight: 700, bgcolor: config.color + '44',
+                                                px: 1, py: 0.2, borderRadius: 99, fontSize: 10
+                                            }}>
+                                                {config.name}
+                                            </Typography>
+                                            {t.user_id?.name && (
+                                                <Typography variant="caption" color="text.secondary">
+                                                    👤 {t.user_id.name}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </Box>
+
+                                    <Box sx={{ textAlign: 'right', flexShrink: 0, mr: 0.5 }}>
+                                        <Typography fontWeight={900} fontSize={15} sx={{ color: t.id_category?.type_category === 'income' ? '#4caf50' : '#e57373' }}>
+                                            {(t.price || 0).toLocaleString('vi-VN')}đ
+                                        </Typography>
+                                    </Box>
+
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                        <IconButton size="small" onClick={() => handleDeleteTransaction(t._id)} sx={{ color: '#ef4444', '&:hover': { color: '#dc2626' } }}>
+                                            <DeleteOutlineIcon sx={{ fontSize: 16 }} />
                                         </IconButton>
-                                    </ListItemSecondaryAction>
-                                </ListItem>
+                                    </Box>
+                                </Box>
                             ))
                         )}
-                    </MuiList>
+                    </Box>
                 </Box>
                 <Box sx={{ p: 2, borderTop: '1px solid #eee', bgcolor: '#fff', position: 'sticky', bottom: 0, zIndex: 10 }}>
                     <Paper component="form" onSubmit={async (e) => {

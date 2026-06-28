@@ -19,14 +19,19 @@ const userSchema = new mongoose.Schema({
         required: false
     },
     family_id: {
+        type: [mongoose.Schema.Types.ObjectId],
+        ref: 'Family',
+        default: []
+    },
+    active_family_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Family',
         default: null
     },
     sendfamily: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: [mongoose.Schema.Types.ObjectId],
         ref: 'Family',
-        default: null
+        default: []
     }
 }, { timestamps: true });
 

@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import CloseIcon from '@mui/icons-material/Close';
 import { useState } from 'react';
 
-export default function UnassignedItems({ transactions, setItemToCategorize, handleDeleteTransaction, getTransactionKeyword, handleAssignCategory }) {
+export default function TravelUnassignedItems({ expenses, setItemToCategorize, handleDeleteExpense, getTransactionKeyword, handleAssignCategory }) {
     const [optimisticHidingIds, setOptimisticHidingIds] = useState([]);
 
-    const unassignedItems = transactions.filter(t => 
-        (!t.category_name || t.category_name === '') && 
+    const unassignedItems = expenses.filter(t => 
+        (!t.category || t.category === '') && 
         !optimisticHidingIds.includes(t._id)
     );
     if (unassignedItems.length === 0) return null;
@@ -69,13 +69,13 @@ export default function UnassignedItems({ transactions, setItemToCategorize, han
                             }
                         }}>
                             <Typography variant="caption" sx={{ color: '#ff9800', display: 'block', mb: 0.1, fontWeight: 'bold', fontSize: '0.6rem' }}>CHƯA PHÂN LOẠI</Typography>
-                            <Typography variant="body2" fontWeight="bold" sx={{ fontSize: '0.8rem', lineHeight: 1.2 }}>{getTransactionKeyword(item.content)}</Typography>
+                            <Typography variant="body2" fontWeight="bold" sx={{ fontSize: '0.8rem', lineHeight: 1.2 }}>{getTransactionKeyword(item.title)}</Typography>
                         </Paper>
                         <IconButton
                             size="small"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteTransaction(item._id);
+                                handleDeleteExpense(item._id);
                             }}
                             sx={{
                                 position: 'absolute',

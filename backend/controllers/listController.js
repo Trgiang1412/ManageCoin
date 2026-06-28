@@ -12,8 +12,8 @@ exports.getLists = async (req, res) => {
             ]
         };
 
-        if (user.family_id) {
-            query.family_id = user.family_id;
+        if (user.active_family_id) {
+            query.family_id = user.active_family_id;
         } else {
             query.user_id = req.user.id;
         }
@@ -32,8 +32,8 @@ exports.getStatistics = async (req, res) => {
         const user = await User.findById(req.user.id);
         
         const query = {};
-        if (user.family_id) {
-            query.family_id = user.family_id;
+        if (user.active_family_id) {
+            query.family_id = user.active_family_id;
         } else {
             query.user_id = req.user.id;
         }
@@ -96,8 +96,8 @@ exports.endMonth = async (req, res) => {
             ]
         };
 
-        if (user.family_id) {
-            query.family_id = user.family_id;
+        if (user.active_family_id) {
+            query.family_id = user.active_family_id;
         } else {
             query.user_id = req.user.id;
         }
@@ -207,7 +207,7 @@ exports.createList = async (req, res) => {
 
         const newList = new List({
             user_id: req.user.id,
-            family_id: user.family_id || null,
+            family_id: user.active_family_id || null,
             category_name: finalCategory, // Using the category name of the type
             id_category: idCategory,
             price: parsedAmount,
@@ -251,8 +251,8 @@ exports.deleteList = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
         const query = { _id: req.params.id };
-        if (user.family_id) {
-            query.family_id = user.family_id;
+        if (user.active_family_id) {
+            query.family_id = user.active_family_id;
         } else {
             query.user_id = req.user.id;
         }
