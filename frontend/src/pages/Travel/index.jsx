@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Box, Typography, Fab, Skeleton, Snackbar, Alert, Tab, Tabs
+    Box, Typography, Fab, Skeleton, Snackbar, Alert, Tab, Tabs, Menu, MenuItem, ListItemIcon
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import MenuIcon from '@mui/icons-material/Menu';
+import LogoutIcon from '@mui/icons-material/Logout';
 import IconButton from '@mui/material/IconButton';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config';
@@ -14,12 +15,14 @@ import { TRAVEL_CATEGORIES } from './TravelFundDetail';
 import FundCard from './components/FundCard';
 import AddFundDialog from './components/AddFundDialog';
 import TravelCategoryDetailsDialog from './components/TravelCategoryDetailsDialog';
+import LeftMenuDrawer from '../Dashboard/components/LeftMenuDrawer';
 
 const STATUS_TABS = ['all', 'planning', 'ongoing', 'completed'];
 const STATUS_LABELS = ['Tất cả', 'Sắp tới', 'Đang đi', 'Đã kết thúc'];
 
 export default function TravelPage() {
     const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
     const token = localStorage.getItem('token');
 
     const [funds, setFunds] = useState([]);
@@ -28,12 +31,23 @@ export default function TravelPage() {
     const [tab, setTab] = useState(0);
     const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
 
+    // Drawer and settings state
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
+    const openSettings = Boolean(settingsAnchorEl);
+
     // Contribution dialog states
     const [contributionFund, setContributionFund] = useState(null);
     const [contributionExpenses, setContributionExpenses] = useState([]);
     const [contributionLoading, setContributionLoading] = useState(false);
 
     const headers = { Authorization: `Bearer ${token}` };
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login');
+    };
 
     const fetchFunds = useCallback(async () => {
         try {
@@ -113,6 +127,23 @@ export default function TravelPage() {
     return (
         <Box sx={{ maxWidth: 480, mx: 'auto', height: '100dvh', display: 'flex', flexDirection: 'column', bgcolor: '#f8fafc', position: 'relative', overflow: 'hidden' }}>
 
+            <Menu
+                id="settings-menu" anchorEl={settingsAnchorEl} open={openSettings} onClose={() => setSettingsAnchorEl(null)}
+                PaperProps={{
+                    elevation: 0,
+                    sx: {
+                        overflow: 'visible', filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.12))', mt: 1.5,
+                        '& .MuiAvatar-root': { width: 32, height: 32, ml: -0.5, mr: 1 },
+                        '&::before': { content: '""', display: 'block', position: 'absolute', top: 0, right: 14, width: 10, height: 10, bgcolor: 'background.paper', transform: 'translateY(-50%) rotate(45deg)', zIndex: 0 }
+                    }
+                }}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }} anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+                <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
+                    <ListItemIcon><LogoutIcon fontSize="small" color="error" /></ListItemIcon> Đăng xuất
+                </MenuItem>
+            </Menu>
+
             {/* ── HEADER ── */}
             <Box sx={{
                 background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
@@ -124,8 +155,8 @@ export default function TravelPage() {
                 <Box sx={{ position: 'absolute', left: -30, bottom: -60, width: 160, height: 160, borderRadius: '50%', background: 'rgba(16,185,129,0.1)' }} />
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, position: 'relative' }}>
-                    <IconButton onClick={() => navigate('/')} sx={{ color: 'rgba(255,255,255,0.6)', p: 0.5 }}>
-                        <ArrowBackIcon />
+                    <IconButton onClick={() => setDrawerOpen(true)} sx={{ color: 'rgba(255,255,255,0.6)', p: 0.5 }}>
+                        <MenuIcon />
                     </IconButton>
                     <Box sx={{
                         width: 44, height: 44, borderRadius: 2.5,
@@ -261,6 +292,8 @@ export default function TravelPage() {
                 anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
                 <Alert severity={snack.severity} sx={{ borderRadius: 2 }} variant="filled">{snack.msg}</Alert>
             </Snackbar>
+
+            <LeftMenuDrawer drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} user={user} setSettingsAnchorEl={setSettingsAnchorEl} handleLogout={handleLogout} />
         </Box>
     );
 }

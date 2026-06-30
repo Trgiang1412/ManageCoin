@@ -13,6 +13,7 @@ const travelController = require('../controllers/travelController');
 router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
 router.get('/auth/me', authMiddleware, authController.getMe);
+router.put('/auth/me', authMiddleware, authController.updateMe);
 
 // --- CATEGORY ROUTES ---
 router.get('/categories', authMiddleware, categoryController.getCategories);
@@ -40,6 +41,7 @@ router.delete('/family/:familyId', authMiddleware, familyController.dissolveFami
 // --- TRAVEL ROUTES ---
 router.get('/travel/funds', authMiddleware, travelController.getFunds);
 router.post('/travel/funds', authMiddleware, travelController.createFund);
+router.get('/travel/statistics', authMiddleware, travelController.getStatistics);
 router.get('/travel/funds/:id', authMiddleware, travelController.getFundById);
 router.put('/travel/funds/:id', authMiddleware, travelController.updateFund);
 router.delete('/travel/funds/:id', authMiddleware, travelController.deleteFund);

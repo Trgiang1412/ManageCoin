@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, IconButton, Paper, ToggleButton, ToggleButtonGroup, TextField, Grid } from '@mui/material';
+import { Box, Typography, IconButton, Paper, ToggleButton, ToggleButtonGroup, TextField, Select, MenuItem } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import axios from 'axios';
@@ -8,6 +8,7 @@ import isBetween from 'dayjs/plugin/isBetween';
 import { useNavigate } from 'react-router-dom';
 import LeftMenuDrawer from '../Dashboard/components/LeftMenuDrawer';
 import { categoryConfig, formatCurrencyShort } from '../Dashboard/index';
+import { TRAVEL_CATEGORIES } from '../Travel/TravelFundDetail';
 import { API_BASE_URL } from '../../config';
 
 dayjs.extend(isBetween);
@@ -24,29 +25,45 @@ export default function Statistics() {
     const [startDate, setStartDate] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
     const [endDate, setEndDate] = useState(dayjs().endOf('month').format('YYYY-MM-DD'));
 
+    // Mode state
+    const [mode, setMode] = useState('daily'); // 'daily', 'travel'
+
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const token = localStorage.getItem('token');
 
     useEffect(() => {
         fetchData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [startDate, endDate]);
+    }, [startDate, endDate, mode]);
 
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [catRes, statRes] = await Promise.all([
-                axios.get(`${API_BASE_URL}/categories`, { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get(`${API_BASE_URL}/lists/statistics`, { 
-                    headers: { Authorization: `Bearer ${token}` },
+            const headers = { Authorization: `Bearer ${token}` };
+            
+            if (mode === 'daily') {
+                const [catRes, statRes] = await Promise.all([
+                    axios.get(`${API_BASE_URL}/categories`, { headers }),
+                    axios.get(`${API_BASE_URL}/lists/statistics`, { 
+                        headers,
+                        params: {
+                            startDate: dayjs(startDate).startOf('day').toISOString(),
+                            endDate: dayjs(endDate).endOf('day').toISOString()
+                        }
+                    })
+                ]);
+                setDbCategories(catRes.data);
+                setStatistics(statRes.data);
+            } else {
+                const statRes = await axios.get(`${API_BASE_URL}/travel/statistics`, {
+                    headers,
                     params: {
                         startDate: dayjs(startDate).startOf('day').toISOString(),
                         endDate: dayjs(endDate).endOf('day').toISOString()
                     }
-                })
-            ]);
-            setDbCategories(catRes.data);
-            setStatistics(statRes.data);
+                });
+                setStatistics(statRes.data);
+            }
         } catch (err) {
             console.error(err);
             if (err.response?.status === 401) {
@@ -80,22 +97,48 @@ export default function Statistics() {
     // Prepare chart data
     const categoryTotals = {};
     
-    // Initialize totals for all expense categories to show 0
-    dbCategories.filter(c => c.type_category !== 'income' && c.category_name !== 'Hạn mức tháng' && c.category_name !== 'Tiết kiệm').forEach(c => {
-        categoryTotals[c.category_name] = 0;
-    });
+    if (mode === 'daily') {
+        // Initialize totals for all expense categories to show 0
+        dbCategories.filter(c => c.type_category !== 'income' && c.category_name !== 'Hạn mức tháng' && c.category_name !== 'Tiết kiệm').forEach(c => {
+            categoryTotals[c.category_name] = 0;
+        });
 
-    // Merge API details into categoryTotals
-    statistics.details.forEach(d => {
-        if (d.category_name !== 'Hạn mức tháng' && d.category_name !== 'Tiết kiệm') {
-            categoryTotals[d.category_name] = d.amount;
-        }
-    });
+        // Merge API details into categoryTotals
+        statistics.details.forEach(d => {
+            if (d.category_name !== 'Hạn mức tháng' && d.category_name !== 'Tiết kiệm') {
+                categoryTotals[d.category_name] = d.amount;
+            }
+        });
+    } else {
+        // Travel mode
+        Object.keys(TRAVEL_CATEGORIES).forEach(k => {
+            if (k !== 'góp_quỹ') {
+                categoryTotals[TRAVEL_CATEGORIES[k].label] = 0;
+            }
+        });
+        
+        statistics.details.forEach(d => {
+            const catInfo = TRAVEL_CATEGORIES[d.category_name];
+            const label = catInfo ? catInfo.label : 'Khác';
+            if (categoryTotals[label] !== undefined) {
+                categoryTotals[label] += d.amount;
+            } else {
+                categoryTotals[label] = d.amount;
+            }
+        });
+    }
 
     const totalExpense = statistics.totalExpense;
 
     const chartData = Object.keys(categoryTotals).map(catName => {
-        const config = categoryConfig[catName] || { color: '#8884d8', icon: '📦' };
+        let config;
+        if (mode === 'daily') {
+            config = categoryConfig[catName] || { color: '#8884d8', icon: '📦' };
+        } else {
+            // Find in TRAVEL_CATEGORIES by label
+            const travelCat = Object.values(TRAVEL_CATEGORIES).find(c => c.label === catName) || { bg: '#8884d8', icon: '📦' };
+            config = { color: travelCat.bg, icon: travelCat.icon };
+        }
         return {
             name: catName,
             amount: categoryTotals[catName],
@@ -125,6 +168,15 @@ export default function Statistics() {
                     <MenuIcon sx={{ color: '#555' }} />
                 </IconButton>
                 <Typography variant="h6" fontWeight="bold" sx={{ color: '#333' }}>Thống kê</Typography>
+                <Select
+                    value={mode}
+                    onChange={(e) => setMode(e.target.value)}
+                    size="small"
+                    sx={{ position: 'absolute', right: 24, bgcolor: '#FFF', borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', '& fieldset': { border: 'none' } }}
+                >
+                    <MenuItem value="daily">Chi tiêu</MenuItem>
+                    <MenuItem value="travel">Du lịch</MenuItem>
+                </Select>
             </Box>
 
             <Box sx={{ flex: 1, overflowY: 'auto', px: 3, pb: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>

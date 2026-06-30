@@ -72,3 +72,17 @@ exports.getMe = async (req, res) => {
         res.status(500).send('Server Error');
     }
 };
+
+exports.updateMe = async (req, res) => {
+    try {
+        const { name, image } = req.body;
+        const user = await User.findById(req.user.id).select('-password');
+        if (name) user.name = name;
+        if (image !== undefined) user.image = image;
+        await user.save();
+        res.json({ id: user.id, name: user.name, email: user.email, image: user.image });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+};

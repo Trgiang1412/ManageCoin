@@ -21,6 +21,25 @@ import TransactionInput from '../Dashboard/components/TransactionInput';
 import SuccessPopup from '../Dashboard/components/SuccessPopup';
 import { playSound } from '../../utils/audio';
 
+// Icons for travel border
+const FlightSvg = ({ sx, ...props }) => (
+    <Box component="svg" viewBox="0 0 24 24" fill="currentColor" sx={{ width: '1em', height: '1em', ...sx }} {...props}>
+        <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+    </Box>
+);
+
+const CloudSvg = ({ sx, ...props }) => (
+    <Box component="svg" viewBox="0 0 24 24" fill="currentColor" sx={{ width: '1em', height: '1em', ...sx }} {...props}>
+        <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+    </Box>
+);
+
+const PinSvg = ({ sx, ...props }) => (
+    <Box component="svg" viewBox="0 0 24 24" fill="currentColor" sx={{ width: '1em', height: '1em', ...sx }} {...props}>
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+    </Box>
+);
+
 // Travel Categories Mapping
 export const TRAVEL_CATEGORIES = {
     'ăn_uống': { icon: '🍗', bg: '#F8D7DA', color: '#e63946', label: 'Ăn uống' },
@@ -272,6 +291,28 @@ export default function TravelFundDetail() {
                 </Box>
 
                 <Box component="div" sx={{ position: 'relative', overflow: 'visible', py: 3, px: 3, borderRadius: 4, bgcolor: '#FFF', textAlign: 'center', boxShadow: '0 8px 24px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    {/* Travel Theme Border overlay */}
+                    <Box sx={{
+                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                        borderRadius: 4,
+                        border: '2px dashed #93c5fd', // Light blue dashed border like flight path
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                    }}>
+                        {/* Airplane top right flying to right */}
+                        <FlightSvg sx={{ position: 'absolute', top: -12, right: '15%', color: '#3b82f6', transform: 'rotate(90deg)', fontSize: 24, bgcolor: '#FFF', borderRadius: '50%' }} />
+                        {/* Cloud top left */}
+                        <CloudSvg sx={{ position: 'absolute', top: -10, left: '20%', color: '#93c5fd', fontSize: 20 }} />
+                        {/* Cloud bottom right */}
+                        <CloudSvg sx={{ position: 'absolute', bottom: -12, right: '25%', color: '#93c5fd', fontSize: 22 }} />
+                        {/* Airplane bottom left flying upwards */}
+                        <FlightSvg sx={{ position: 'absolute', bottom: '25%', left: -10, color: '#60a5fa', transform: 'rotate(0deg)', fontSize: 20, bgcolor: '#FFF', borderRadius: '50%' }} />
+                        {/* Pin bottom left */}
+                        <PinSvg sx={{ position: 'absolute', bottom: -12, left: '15%', color: '#ef4444', fontSize: 24, bgcolor: '#FFF', borderRadius: '50%' }} />
+                        {/* Cloud right middle */}
+                        <CloudSvg sx={{ position: 'absolute', top: '40%', right: -12, color: '#bfdbfe', fontSize: 24 }} />
+                    </Box>
+
                     {/* Cat animation */}
                     <Box sx={{
                         position: 'absolute', top: '-32px', width: '32px', height: '32px',

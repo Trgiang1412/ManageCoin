@@ -169,6 +169,44 @@ exports.inviteMember = async (req, res) => {
     }
 };
 
+// GET /travel/statistics
+exports.getStatistics = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        let matchStage = { 
+            user_id: new mongoose.Types.ObjectId(req.user.id),
+            category: { $ne: 'góp_quỹ' }
+        };
+
+        if (startDate || endDate) {
+            matchStage.date = {};
+            if (startDate) matchStage.date.$gte = new Date(startDate);
+            if (endDate) matchStage.date.$lte = new Date(endDate);
+        }
+
+        const agg = await TravelExpense.aggregate([
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: '$category',
+                    amount: { $sum: '$amount' }
+                }
+            }
+        ]);
+
+        const details = agg.map(a => ({
+            category_name: a._id || 'khác',
+            amount: a.amount
+        }));
+
+        const totalExpense = details.reduce((sum, d) => sum + d.amount, 0);
+
+        res.json({ totalExpense, details });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
 // ── EXPENSE CRUD ──────────────────────────────────────────────────────────────
 
 // GET /travel/funds/:id/expenses

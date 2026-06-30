@@ -28,35 +28,38 @@ export default function CategoryDetailsDialog({ selectedCategoryName, setSelecte
                         ) : (
                             [...catTransactions].reverse().map(t => (
                                 <Box key={t._id} sx={{
-                                    display: 'flex', alignItems: 'center', gap: 1.5,
+                                    display: 'flex', flexDirection: 'column',
                                     py: 1.2, px: 1.5, borderRadius: 3,
                                     bgcolor: 'white',
                                     boxShadow: '0 1px 8px rgba(0,0,0,0.05)',
                                     transition: 'box-shadow 0.15s',
                                     '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }
                                 }}>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography fontWeight={700} fontSize={14} sx={{ wordBreak: 'break-word' }}>{getTransactionKeyword(t.content) || 'Khoản chi'}</Typography>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.3 }}>
-                                            {t.user_id?.name && (
-                                                <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 100 }}>
-                                                    👤 {t.user_id.name}
-                                                </Typography>
-                                            )}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Typography fontWeight={700} fontSize={14} sx={{ wordBreak: 'break-word' }}>{getTransactionKeyword(t.content) || 'Khoản chi'}</Typography>
+                                        </Box>
+
+                                        <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                                            <Typography fontWeight={900} fontSize={15} sx={{ color: t.id_category?.type_category === 'income' ? '#4caf50' : '#e57373' }}>
+                                                {(t.price || 0).toLocaleString('vi-VN')}đ
+                                            </Typography>
+                                        </Box>
+
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                            <IconButton size="small" onClick={() => handleDeleteTransaction(t._id)} sx={{ color: '#ef4444', '&:hover': { color: '#dc2626' }, mr: -0.5 }}>
+                                                <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                                            </IconButton>
                                         </Box>
                                     </Box>
-
-                                    <Box sx={{ textAlign: 'right', flexShrink: 0, mr: 0.5 }}>
-                                        <Typography fontWeight={900} fontSize={15} sx={{ color: t.id_category?.type_category === 'income' ? '#4caf50' : '#e57373' }}>
-                                            {(t.price || 0).toLocaleString('vi-VN')}đ
-                                        </Typography>
-                                    </Box>
-
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                                        <IconButton size="small" onClick={() => handleDeleteTransaction(t._id)} sx={{ color: '#ef4444', '&:hover': { color: '#dc2626' } }}>
-                                            <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-                                        </IconButton>
-                                    </Box>
+                                    {t.user_id?.name && (
+                                        <Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed #eee' }}>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                                👤 {t.user_id.name}
+                                                {t.date && ` - ${new Date(t.date).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}`}
+                                            </Typography>
+                                        </Box>
+                                    )}
                                 </Box>
                             ))
                         )}
